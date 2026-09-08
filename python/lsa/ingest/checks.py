@@ -1,0 +1,106 @@
+"""Cross-file plausibility checks, kept as pure functions so they are trivially
+unit-testable without a database."""
+
+from collections import Counter
+from dataclasses import dataclass
+
+from lsa.ingest.models import PlausibleValueRow, ResponseRow, SchoolRow, StudentRow
+
+
+@dataclass(frozen=True)
+class Finding:
+    """One problem found during ingestion.
+
+    severity 'reject' drops the record (and its dependents) from the load;
+    severity 'warn' goes to the report but does not block anything.
+    """
+
+    severity: str  # "reject" | "warn"
+    source: str  # file the finding refers to
+    key: str  # identifier of the offending record or stratum
+    message: str
+
+
+def referential_integrity(
+    schools: list[SchoolRow],
+    students: list[StudentRow],
+    responses: list[ResponseRow],
+    pvs: list[PlausibleValueRow],
+    item_ids: set[str],
+) -> list[Finding]:
+    """Every foreign key must resolve; orphans are rejected."""
+    findings: list[Finding] = []
+    school_ids = {s.school_id for s in schools}
+    student_ids = {s.student_id for s in students}
+    responder_ids = {s.student_id for s in students if s.participated}
+
+    for st in students:
+        if st.school_id not in school_ids:
+            findings.append(
+                Finding("reject", "students.csv", st.student_id,
+                        f"unknown school {st.school_id}")
+            )
+    for r in responses:
+        if r.student_id not in student_ids:
+            findings.append(
+                Finding("reject", "responses.csv", f"{r.student_id}/{r.item_id}",
+                        "response for unknown student")
+            )
+        if r.item_id not in item_ids:
+            findings.append(
+                Finding("reject", "responses.csv", f"{r.student_id}/{r.item_id}",
+                        f"unknown item {r.item_id}")
+            )
+    for pv in pvs:
+        if pv.student_id not in responder_ids:
+            findings.append(
+                Finding("reject", "plausible_values.csv", pv.student_id,
+                        "plausible values for a student who did not participate")
+            )
+    return findings
+
+
+def school_consistency(schools: list[SchoolRow], students: list[StudentRow]) -> list[Finding]:
+    """The canton/region denormalised onto students must match their school."""
+    by_id = {s.school_id: s for s in schools}
+    findings: list[Finding] = []
+    for st in students:
+        school = by_id.get(st.school_id)
+        if school is None:
+            continue  # already rejected by referential_integrity
+        if (st.canton, st.language_region) != (school.canton, school.language_region):
+            findings.append(
+                Finding("reject", "students.csv", st.student_id,
+                        f"canton/region {st.canton}/{st.language_region} does not match "
+                        f"school {school.school_id} ({school.canton}/{school.language_region})")
+            )
+    return findings
+
+
+def response_rates(students: list[StudentRow], minimum: float) -> list[Finding]:
+    """Response rate per stratum (canton). Below-minimum strata are flagged as
+    warnings: low response is an analytic problem, not a data error."""
+    sampled: Counter[str] = Counter()
+    responded: Counter[str] = Counter()
+    for st in students:
+        sampled[st.canton] += 1
+        if st.participated:
+            responded[st.canton] += 1
+    findings: list[Finding] = []
+    for canton in sorted(sampled):
+        rate = responded[canton] / sampled[canton]
+        if rate < minimum:
+            findings.append(
+                Finding("warn", "students.csv", canton,
+                        f"response rate {rate:.3f} below minimum {minimum:.2f}")
+            )
+    return findings
+
+
+def duplicate_keys(ids: list[str], source: str) -> list[Finding]:
+    """Primary keys must be unique within a file."""
+    return [
+        Finding("reject", source, key, "duplicate primary key")
+        for key, n in Counter(ids).items()
+        if n > 1
+    ]
