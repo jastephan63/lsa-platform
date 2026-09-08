@@ -7,7 +7,7 @@ SHELL := /bin/bash
 
 SEED ?= 20260908
 
-.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r bootstrap backup smoke lint-shell up down analysis kind-up kind-down validate-k8s
+.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r bootstrap backup smoke lint-shell up down analysis kind-up kind-down validate-tf validate-k8s
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -60,6 +60,11 @@ kind-up: ## Deploy everything to a local kind cluster (secrets from environment)
 
 kind-down: ## Delete the local kind cluster
 	kind delete cluster --name lsa
+
+validate-tf: ## terraform fmt-check + validate the OpenStack module (no credentials needed)
+	terraform -chdir=infra fmt -check
+	terraform -chdir=infra init -backend=false -input=false > /dev/null
+	terraform -chdir=infra validate
 
 validate-k8s: ## Render both overlays and validate with kubeconform
 	kustomize build --load-restrictor=LoadRestrictionsNone k8s/overlays/dev | kubeconform -strict -summary

@@ -188,6 +188,34 @@ jobs:
           test "$(check "SELECT has_table_privilege('lsa_analyst','student','SELECT')")" = "t"
           test "$(check "SELECT has_table_privilege('lsa_analyst','api_audit_log','SELECT')")" = "f"
 
+  terraform:
+    name: terraform fmt + validate + tflint + docs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v4.0.1
+      - name: terraform fmt
+        run: terraform fmt -check -diff
+      - name: terraform validate (no backend, no credentials)
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+      - uses: terraform-linters/setup-tflint@v6.3.1
+      - name: tflint
+        run: |
+          tflint --init
+          tflint --format compact
+      - name: terraform-docs table is current
+        uses: terraform-docs/gh-actions@v1.4.1
+        with:
+          working-dir: infra
+          output-file: README.md
+          output-method: inject
+          fail-on-diff: "true"
+
   k8s-validate:
     name: kustomize build + kubeconform
     runs-on: ubuntu-latest
