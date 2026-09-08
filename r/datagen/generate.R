@@ -14,15 +14,20 @@
 # Base R only, no package dependencies. Reproducible for a given seed.
 
 args <- commandArgs(trailingOnly = TRUE)
-opt <- list(seed = 20260908, out = "data/raw")
+opt <- list(seed = 20260908, out = "data/raw", scale = 1L)
 i <- 1
 while (i <= length(args)) {
   if (args[i] == "--seed") { opt$seed <- as.integer(args[i + 1]); i <- i + 2 }
   else if (args[i] == "--out") { opt$out <- args[i + 1]; i <- i + 2 }
+  else if (args[i] == "--scale") { opt$scale <- as.integer(args[i + 1]); i <- i + 2 }
   else if (args[i] == "--help") {
-    cat("Usage: Rscript generate.R [--seed N] [--out DIR]\n"); quit(status = 0)
+    cat("Usage: Rscript generate.R [--seed N] [--out DIR] [--scale N]\n",
+        "--scale multiplies the school frame and per-canton sample",
+        "(scale 42 yields roughly 100k students) for load testing.\n")
+    quit(status = 0)
   } else stop("unknown argument: ", args[i])
 }
+stopifnot(opt$scale >= 1)
 set.seed(opt$seed)
 dir.create(opt$out, recursive = TRUE, showWarnings = FALSE)
 
@@ -41,7 +46,7 @@ cantons <- data.frame(
   stringsAsFactors = FALSE
 )
 
-n_frame_schools <- pmax(4, round(cantons$rel_size / sum(cantons$rel_size) * 800))
+n_frame_schools <- pmax(4, round(cantons$rel_size / sum(cantons$rel_size) * 800 * opt$scale))
 frame <- do.call(rbind, lapply(seq_len(nrow(cantons)), function(k) {
   n <- n_frame_schools[k]
   data.frame(
@@ -54,7 +59,7 @@ frame <- do.call(rbind, lapply(seq_len(nrow(cantons)), function(k) {
 frame$school_id <- sprintf("SCH%04d", seq_len(nrow(frame)))
 
 # --- 2. First stage: PPS systematic sample of schools per canton -------------
-schools_per_canton <- pmax(2, pmin(12, round(n_frame_schools * 0.15)))
+schools_per_canton <- pmax(2, pmin(12 * opt$scale, round(n_frame_schools * 0.15)))
 sample_pps <- function(sizes, n) {
   # Systematic PPS: random start on the cumulative size scale, fixed step.
   cum <- cumsum(sizes)
@@ -165,30 +170,49 @@ plausible <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# --- 6b. Jackknife replicate weights (JKn, delete one school) ----------------
-# Strata are cantons, PSUs are schools. Replicate r drops one school: its
-# students get weight 0, students at the other schools of the same stratum
-# are scaled by n_h/(n_h-1), everyone else keeps their weight. The variance
-# factor (n_h-1)/n_h travels with the replicate. Simplification, documented
-# in docs/data-spec.md: replicates scale the final (nonresponse-adjusted)
-# weight rather than re-estimating the adjustment per replicate.
+# --- 6b. Jackknife replicate weights (grouped JKn, variance zones) -----------
+# Strata are cantons, PSUs are schools, grouped into at most ~120 variance
+# zones overall so the replicate count stays bounded as the sample scales —
+# the same device real assessments use. Replicate r drops one zone: its
+# students get weight 0, students in the stratum's other zones are scaled
+# by G_h/(G_h-1), everyone else keeps their weight; the variance factor
+# (G_h-1)/G_h travels with the replicate. At the default scale each zone
+# holds exactly one school. Simplification, documented in docs/data-spec.md:
+# replicates scale the final (nonresponse-adjusted) weight rather than
+# re-estimating the adjustment per replicate.
 resp_students <- students[students$participated, ]
 schools_by_canton <- split(schools$school_id, schools$canton)
-replicates <- do.call(rbind, lapply(names(schools_by_canton), function(h) {
+max_zones <- 120
+n_per_canton <- vapply(schools_by_canton, length, integer(1))
+# pmin first: pmax()/pmin() take attributes from their first argument, and
+# the canton names must survive.
+zones_per_canton <- pmin(n_per_canton,
+                         pmax(round(max_zones * n_per_canton / sum(n_per_canton)), 2))
+
+# Deterministic round-robin assignment of schools to zones within a stratum.
+school_zone <- unlist(lapply(names(schools_by_canton), function(h) {
   ids <- schools_by_canton[[h]]
-  data.frame(canton = h, dropped_school_id = ids,
-             jk_factor = (length(ids) - 1) / length(ids),
+  setNames(((seq_along(ids) - 1) %% zones_per_canton[[h]]) + 1, ids)
+}))
+
+replicates <- do.call(rbind, lapply(names(schools_by_canton), function(h) {
+  g_h <- zones_per_canton[[h]]
+  data.frame(canton = h, zone = seq_len(g_h),
+             n_schools = as.integer(table(factor(
+               school_zone[schools_by_canton[[h]]], levels = seq_len(g_h)))),
+             jk_factor = (g_h - 1) / g_h,
              stringsAsFactors = FALSE)
 }))
 replicates$replicate_id <- seq_len(nrow(replicates))
 
+student_zone <- school_zone[resp_students$school_id]
 rep_weights <- do.call(rbind, lapply(seq_len(nrow(replicates)), function(r) {
   rep <- replicates[r, ]
-  n_h <- length(schools_by_canton[[rep$canton]])
+  g_h <- zones_per_canton[[rep$canton]]
   w <- resp_students$final_weight
   same_stratum <- resp_students$canton == rep$canton
-  dropped <- resp_students$school_id == rep$dropped_school_id
-  w[same_stratum] <- w[same_stratum] * n_h / (n_h - 1)
+  dropped <- same_stratum & student_zone == rep$zone
+  w[same_stratum] <- w[same_stratum] * g_h / (g_h - 1)
   w[dropped] <- 0
   data.frame(student_id = resp_students$student_id,
              replicate_id = rep$replicate_id,
@@ -209,8 +233,10 @@ stopifnot(
     as.numeric(tapply(students$student_weight, students$canton, sum)),
     tolerance = 1e-6
   )),
-  # One replicate per sampled school; every responder appears in each.
-  nrow(replicates) == nrow(schools),
+  # Zones partition each stratum's schools; every responder appears in each
+  # replicate; at most a bounded number of replicates overall.
+  sum(replicates$n_schools) == nrow(schools),
+  nrow(replicates) <= 130,
   nrow(rep_weights) == nrow(resp_students) * nrow(replicates),
   all(rep_weights$weight >= 0)
 )
@@ -227,7 +253,7 @@ out(students[, c("student_id", "school_id", "canton", "language_region",
 out(items, "items.csv")
 out(responses, "responses.csv")
 out(plausible, "plausible_values.csv")
-out(replicates[, c("replicate_id", "canton", "dropped_school_id", "jk_factor")],
+out(replicates[, c("replicate_id", "canton", "n_schools", "jk_factor")],
     "replicates.csv")
 out(rep_weights, "replicate_weights.csv")
 

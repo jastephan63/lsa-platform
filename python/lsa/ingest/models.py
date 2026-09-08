@@ -66,8 +66,8 @@ class ResponseRow(BaseModel):
 class ReplicateRow(BaseModel):
     replicate_id: int = Field(ge=1)
     canton: str
-    dropped_school_id: str = Field(pattern=r"^SCH\d{4}$")
-    # (n_h - 1) / n_h with at least two schools per stratum: strictly (0, 1).
+    n_schools: int = Field(ge=1)
+    # (G_h - 1) / G_h with at least two zones per stratum: strictly (0, 1).
     jk_factor: float = Field(gt=0, lt=1)
 
 

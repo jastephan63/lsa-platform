@@ -80,21 +80,23 @@ without claiming statistical fidelity to any real survey:
 ### `replicates.csv`
 | Column | Type | Notes |
 | ------ | ---- | ----- |
-| replicate_id | int, PK | 1…number of sampled schools |
-| canton | text | stratum of the dropped school |
-| dropped_school_id | text, FK → schools | the PSU this replicate deletes |
-| jk_factor | numeric | (n_h − 1) / n_h for the stratum, used in the variance sum |
+| replicate_id | int, PK | 1…number of variance zones (≤ ~120) |
+| canton | text | stratum of the dropped zone |
+| n_schools | int | schools grouped into this zone (1 at default scale) |
+| jk_factor | numeric | (G_h − 1) / G_h for the stratum, used in the variance sum |
 
 ### `replicate_weights.csv`
 | Column | Type | Notes |
 | ------ | ---- | ----- |
 | student_id | text, FK | responders only |
 | replicate_id | int, FK | |
-| weight | numeric | ≥ 0; 0 for students of the dropped school |
+| weight | numeric | ≥ 0; 0 for students of the dropped zone |
 
-Jackknife (JKn, delete one school within its canton stratum): students of
-the dropped school get weight 0, students at the stratum's other schools are
-scaled by n_h/(n_h−1), all others keep their final weight. **Documented
+Grouped jackknife (JKn over variance zones): schools are grouped into at
+most ~120 zones so the replicate count stays bounded as `--scale` grows.
+Students of the dropped zone get weight 0, students in the stratum's other
+zones are scaled by G_h/(G_h−1), all others keep their final weight. At the
+default scale every zone holds exactly one school. **Documented
 simplification:** the replicates scale the final (nonresponse-adjusted)
 weight; the nonresponse adjustment itself is not re-estimated per replicate,
 which real operations would do.

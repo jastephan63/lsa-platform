@@ -38,6 +38,8 @@ configMapGenerator:
       - ../../db/migrations/0004_audit.sql
       - ../../db/migrations/0005_analyst_role.sql
       - ../../db/migrations/0006_replicates.sql
+      - ../../db/migrations/0007_ses_view.sql
+      - ../../db/migrations/0008_replicate_zones.sql
   - name: lsa-scripts
     files:
       - ../../scripts/migrate.sh

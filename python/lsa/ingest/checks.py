@@ -110,18 +110,23 @@ def replicate_integrity(
     replicates: list[ReplicateRow],
     rep_weights: list[ReplicateWeightRow],
 ) -> list[Finding]:
-    """Replicate structure: dropped schools must exist, every replicate weight
-    must reference a known replicate and a participating student."""
+    """Replicate structure: zones must partition each stratum's schools, and
+    every replicate weight must reference a known replicate and a
+    participating student."""
     findings: list[Finding] = []
-    school_ids = {s.school_id for s in schools}
     responder_ids = {s.student_id for s in students if s.participated}
     replicate_ids = {r.replicate_id for r in replicates}
 
+    schools_per_canton = Counter(s.canton for s in schools)
+    zoned_per_canton: Counter[str] = Counter()
     for rep in replicates:
-        if rep.dropped_school_id not in school_ids:
+        zoned_per_canton[rep.canton] += rep.n_schools
+    for canton, n in schools_per_canton.items():
+        if zoned_per_canton.get(canton, 0) != n:
             findings.append(
-                Finding("reject", "replicates.csv", str(rep.replicate_id),
-                        f"drops unknown school {rep.dropped_school_id}")
+                Finding("reject", "replicates.csv", canton,
+                        f"zones cover {zoned_per_canton.get(canton, 0)} schools "
+                        f"but the stratum has {n}")
             )
     for w in rep_weights:
         key = f"{w.student_id}/{w.replicate_id}"
