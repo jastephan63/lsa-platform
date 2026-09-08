@@ -23,6 +23,8 @@ from lsa.ingest import checks
 from lsa.ingest.models import (
     ItemRow,
     PlausibleValueRow,
+    ReplicateRow,
+    ReplicateWeightRow,
     ResponseRow,
     SchoolRow,
     StudentRow,
@@ -80,6 +82,10 @@ def validate(data_dir: Path, min_response_rate: float) -> tuple[LoadResult, Acce
     items = _read_rows(data_dir / "items.csv", ItemRow, result.findings)
     responses = _read_rows(data_dir / "responses.csv", ResponseRow, result.findings)
     pvs = _read_rows(data_dir / "plausible_values.csv", PlausibleValueRow, result.findings)
+    replicates = _read_rows(data_dir / "replicates.csv", ReplicateRow, result.findings)
+    rep_weights = _read_rows(
+        data_dir / "replicate_weights.csv", ReplicateWeightRow, result.findings
+    )
 
     result.findings += checks.duplicate_keys([s.school_id for s in schools], "schools.csv")
     result.findings += checks.duplicate_keys([s.student_id for s in students], "students.csv")
@@ -88,6 +94,7 @@ def validate(data_dir: Path, min_response_rate: float) -> tuple[LoadResult, Acce
     )
     result.findings += checks.school_consistency(schools, students)
     result.findings += checks.response_rates(students, min_response_rate)
+    result.findings += checks.replicate_integrity(schools, students, replicates, rep_weights)
 
     # Drop rejected records, then everything that depends on a dropped record.
     # Rejection keys per source: students.csv → student_id,
@@ -106,6 +113,7 @@ def validate(data_dir: Path, min_response_rate: float) -> tuple[LoadResult, Acce
     pvs = [
         p for p in pvs if p.student_id in student_ids and p.student_id not in bad_pvs
     ]
+    rep_weights = [w for w in rep_weights if w.student_id in student_ids]
 
     return result, {
         "school": schools,
@@ -113,6 +121,8 @@ def validate(data_dir: Path, min_response_rate: float) -> tuple[LoadResult, Acce
         "item": items,
         "response": responses,
         "plausible_value": pvs,
+        "replicate": replicates,
+        "replicate_weight": rep_weights,
     }
 
 
@@ -120,9 +130,11 @@ def load(conn: psycopg.Connection, accepted: Accepted) -> dict[str, int]:
     """Replace all assessment data in one transaction."""
     counts: dict[str, int] = {}
     with conn.transaction(), conn.cursor() as cur:
-        for table in ("plausible_value", "response", "student", "item", "school"):
+        for table in ("replicate_weight", "replicate", "plausible_value",
+                      "response", "student", "item", "school"):
             cur.execute(sql.SQL("DELETE FROM {}").format(sql.Identifier(table)))
-        for table in ("school", "student", "item", "response", "plausible_value"):
+        for table in ("school", "student", "item", "response", "plausible_value",
+                      "replicate", "replicate_weight"):
             rows = accepted[table]
             if not rows:
                 counts[table] = 0

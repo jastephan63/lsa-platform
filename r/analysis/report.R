@@ -13,9 +13,22 @@ if (nrow(students) == 0) {
   stop("database holds no participants; run the ingest first", call. = FALSE)
 }
 
-results <- pv_group_means(students, "canton")
-results <- suppress_small_cells(results, n_col = "n", value_cols = c("estimate", "imputation_var"))
-results$estimate <- round(results$estimate, 2)
+results <- pv_group_means_se(
+  students,
+  reps = fetch_replicates(conn),
+  rep_weights = fetch_replicate_weights(conn),
+  group = "canton"
+)
+results <- suppress_small_cells(
+  results,
+  n_col = "n",
+  value_cols = c("estimate", "se", "ci_lower", "ci_upper",
+                 "sampling_var", "imputation_var")
+)
+for (col in c("estimate", "se", "ci_lower", "ci_upper")) {
+  results[[col]] <- round(results[[col]], 2)
+}
+results$sampling_var <- round(results$sampling_var, 4)
 results$imputation_var <- round(results$imputation_var, 4)
 
 write.csv(results, stdout(), row.names = FALSE)

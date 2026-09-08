@@ -165,6 +165,36 @@ plausible <- data.frame(
   stringsAsFactors = FALSE
 )
 
+# --- 6b. Jackknife replicate weights (JKn, delete one school) ----------------
+# Strata are cantons, PSUs are schools. Replicate r drops one school: its
+# students get weight 0, students at the other schools of the same stratum
+# are scaled by n_h/(n_h-1), everyone else keeps their weight. The variance
+# factor (n_h-1)/n_h travels with the replicate. Simplification, documented
+# in docs/data-spec.md: replicates scale the final (nonresponse-adjusted)
+# weight rather than re-estimating the adjustment per replicate.
+resp_students <- students[students$participated, ]
+schools_by_canton <- split(schools$school_id, schools$canton)
+replicates <- do.call(rbind, lapply(names(schools_by_canton), function(h) {
+  ids <- schools_by_canton[[h]]
+  data.frame(canton = h, dropped_school_id = ids,
+             jk_factor = (length(ids) - 1) / length(ids),
+             stringsAsFactors = FALSE)
+}))
+replicates$replicate_id <- seq_len(nrow(replicates))
+
+rep_weights <- do.call(rbind, lapply(seq_len(nrow(replicates)), function(r) {
+  rep <- replicates[r, ]
+  n_h <- length(schools_by_canton[[rep$canton]])
+  w <- resp_students$final_weight
+  same_stratum <- resp_students$canton == rep$canton
+  dropped <- resp_students$school_id == rep$dropped_school_id
+  w[same_stratum] <- w[same_stratum] * n_h / (n_h - 1)
+  w[dropped] <- 0
+  data.frame(student_id = resp_students$student_id,
+             replicate_id = rep$replicate_id,
+             weight = w, stringsAsFactors = FALSE)
+}))
+
 # --- 7. Invariant checks before writing --------------------------------------
 stopifnot(
   !anyDuplicated(schools$school_id),
@@ -178,7 +208,11 @@ stopifnot(
                       students$canton[students$participated], sum)),
     as.numeric(tapply(students$student_weight, students$canton, sum)),
     tolerance = 1e-6
-  ))
+  )),
+  # One replicate per sampled school; every responder appears in each.
+  nrow(replicates) == nrow(schools),
+  nrow(rep_weights) == nrow(resp_students) * nrow(replicates),
+  all(rep_weights$weight >= 0)
 )
 
 # --- 8. Write outputs --------------------------------------------------------
@@ -193,6 +227,9 @@ out(students[, c("student_id", "school_id", "canton", "language_region",
 out(items, "items.csv")
 out(responses, "responses.csv")
 out(plausible, "plausible_values.csv")
+out(replicates[, c("replicate_id", "canton", "dropped_school_id", "jk_factor")],
+    "replicates.csv")
+out(rep_weights, "replicate_weights.csv")
 
 manifest <- data.frame(
   key = c("seed", "generated_at_utc", "n_schools", "n_students",

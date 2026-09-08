@@ -4,7 +4,14 @@ unit-testable without a database."""
 from collections import Counter
 from dataclasses import dataclass
 
-from lsa.ingest.models import PlausibleValueRow, ResponseRow, SchoolRow, StudentRow
+from lsa.ingest.models import (
+    PlausibleValueRow,
+    ReplicateRow,
+    ReplicateWeightRow,
+    ResponseRow,
+    SchoolRow,
+    StudentRow,
+)
 
 
 @dataclass(frozen=True)
@@ -93,6 +100,40 @@ def response_rates(students: list[StudentRow], minimum: float) -> list[Finding]:
             findings.append(
                 Finding("warn", "students.csv", canton,
                         f"response rate {rate:.3f} below minimum {minimum:.2f}")
+            )
+    return findings
+
+
+def replicate_integrity(
+    schools: list[SchoolRow],
+    students: list[StudentRow],
+    replicates: list[ReplicateRow],
+    rep_weights: list[ReplicateWeightRow],
+) -> list[Finding]:
+    """Replicate structure: dropped schools must exist, every replicate weight
+    must reference a known replicate and a participating student."""
+    findings: list[Finding] = []
+    school_ids = {s.school_id for s in schools}
+    responder_ids = {s.student_id for s in students if s.participated}
+    replicate_ids = {r.replicate_id for r in replicates}
+
+    for rep in replicates:
+        if rep.dropped_school_id not in school_ids:
+            findings.append(
+                Finding("reject", "replicates.csv", str(rep.replicate_id),
+                        f"drops unknown school {rep.dropped_school_id}")
+            )
+    for w in rep_weights:
+        key = f"{w.student_id}/{w.replicate_id}"
+        if w.replicate_id not in replicate_ids:
+            findings.append(
+                Finding("reject", "replicate_weights.csv", key,
+                        "unknown replicate")
+            )
+        if w.student_id not in responder_ids:
+            findings.append(
+                Finding("reject", "replicate_weights.csv", key,
+                        "replicate weight for a non-participating student")
             )
     return findings
 

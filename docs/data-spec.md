@@ -77,6 +77,28 @@ without claiming statistical fidelity to any real survey:
 | student_id | text, FK | responders only |
 | pv1 … pv5 | numeric | reporting scale, mean ≈ 500, SD ≈ 100 |
 
+### `replicates.csv`
+| Column | Type | Notes |
+| ------ | ---- | ----- |
+| replicate_id | int, PK | 1…number of sampled schools |
+| canton | text | stratum of the dropped school |
+| dropped_school_id | text, FK → schools | the PSU this replicate deletes |
+| jk_factor | numeric | (n_h − 1) / n_h for the stratum, used in the variance sum |
+
+### `replicate_weights.csv`
+| Column | Type | Notes |
+| ------ | ---- | ----- |
+| student_id | text, FK | responders only |
+| replicate_id | int, FK | |
+| weight | numeric | ≥ 0; 0 for students of the dropped school |
+
+Jackknife (JKn, delete one school within its canton stratum): students of
+the dropped school get weight 0, students at the stratum's other schools are
+scaled by n_h/(n_h−1), all others keep their final weight. **Documented
+simplification:** the replicates scale the final (nonresponse-adjusted)
+weight; the nonresponse adjustment itself is not re-estimated per replicate,
+which real operations would do.
+
 ### `manifest.csv`
 Key–value record of the seed, generation timestamp, and row counts. The
 timestamp is the only non-reproducible field; everything else is

@@ -63,6 +63,20 @@ class ResponseRow(BaseModel):
     correct: int = Field(ge=0, le=1)
 
 
+class ReplicateRow(BaseModel):
+    replicate_id: int = Field(ge=1)
+    canton: str
+    dropped_school_id: str = Field(pattern=r"^SCH\d{4}$")
+    # (n_h - 1) / n_h with at least two schools per stratum: strictly (0, 1).
+    jk_factor: float = Field(gt=0, lt=1)
+
+
+class ReplicateWeightRow(BaseModel):
+    student_id: str = Field(pattern=r"^STU\d{5}$")
+    replicate_id: int = Field(ge=1)
+    weight: float = Field(ge=0)
+
+
 class PlausibleValueRow(BaseModel):
     student_id: str = Field(pattern=r"^STU\d{5}$")
     # The reporting scale is mean 500, SD 100; values far outside are a sign

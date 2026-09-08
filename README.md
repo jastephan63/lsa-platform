@@ -114,9 +114,10 @@ things:
   ([infra/README.md](infra/README.md) marks exactly what `terraform
   validate` does and does not prove).
 - Plausible values use a simplified EAP draw, not operational PV
-  methodology; variance estimation stops at Rubin's between-imputation term
-  because the synthetic design carries no replicate weights. Both
-  simplifications are documented where they live.
+  methodology. Variance estimation is design-based (jackknife replicate
+  weights combined with Rubin's rules across plausible values), but the
+  nonresponse adjustment is not re-estimated per replicate — a documented
+  simplification ([data spec](docs/data-spec.md)).
 
 ## License
 
