@@ -66,6 +66,11 @@ proceeds. Requires a running Docker daemon (`make up` says so if not). No
 inline comments in the code block — macOS's default zsh would treat them as
 arguments.
 
+If you change `POSTGRES_PASSWORD` in `.env` *after* the database has
+already been created once, run `make reset` first: PostgreSQL sets its
+credentials only when its data volume is first initialised, so the old
+volume must go (it holds only regenerable synthetic data).
+
 Kubernetes instead (needs kind + kubectl + kustomize):
 `set -a; . ./.env; set +a; make kind-up` — then `make smoke BASE_URL=http://localhost:8080`.
 

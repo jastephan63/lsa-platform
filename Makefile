@@ -7,7 +7,7 @@ SHELL := /bin/bash
 
 SEED ?= 20260908
 
-.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r bootstrap backup smoke lint-shell up down analysis kind-up kind-down validate-tf validate-k8s
+.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r bootstrap backup smoke lint-shell up down analysis reset kind-up kind-down validate-tf validate-k8s
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -55,6 +55,9 @@ up: ## Build and start the whole stack locally (needs .env, see .env.example)
 
 down: ## Stop the stack (keep data volumes)
 	docker compose down
+
+reset: ## Stop the stack AND delete its volumes (synthetic data only). Needed after changing POSTGRES_PASSWORD, because postgres sets credentials only on first init
+	docker compose down --volumes --remove-orphans
 
 analysis: ## Run the R analysis batch job against the running stack
 	docker compose run --rm analysis
