@@ -13,18 +13,24 @@ disclosure-control rule (no published cell under the minimum size) holds.
 
 Options:
   --base-url URL   API base URL (default: http://localhost:8000)
+  --insecure       Accept a self-signed certificate (local TLS ingress)
   --help           Show this help
 EOF
 }
 
 base_url="http://localhost:8000"
+curl_extra=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --base-url) base_url="$2"; shift 2 ;;
+    --insecure) curl_extra="-k"; shift ;;
     --help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
+
+# Every request goes through this wrapper so --insecure applies everywhere.
+curl() { command curl $curl_extra "$@"; }
 
 pass=0
 fail() { echo "FAIL: $1" >&2; exit 1; }
@@ -78,5 +84,20 @@ ok "request id propagation"
 body="$(curl -fsS "$base_url/")"
 grep -qi "synthetic" <<<"$body" || fail "html page missing the synthetic-data disclaimer"
 ok "html page renders with disclaimer"
+
+# Restricted tier: never readable without a token; fully served with one.
+status="$(curl -s -o /dev/null -w '%{http_code}' "$base_url/api/restricted/cantons-by-ses")"
+[ "$status" = "401" ] || [ "$status" = "503" ] || fail "restricted tier answered $status without a token"
+ok "restricted tier refuses unauthenticated access ($status)"
+
+if [ -n "${LSA_ANALYST_API_TOKEN:-}" ]; then
+  body="$(curl -fsS -H "Authorization: Bearer $LSA_ANALYST_API_TOKEN" \
+    "$base_url/api/restricted/cantons-by-ses")" \
+    || fail "restricted tier rejected a valid token"
+  n_cells="$(grep -o '"canton"' <<<"$body" | wc -l | tr -d ' ')"
+  [ "$n_cells" -eq 130 ] || fail "expected 130 canton-by-ses cells, got $n_cells"
+  grep -q 'null' <<<"$body" || fail "finer cells should trigger at least one suppression"
+  ok "restricted tier serves 130 suppressed-where-small cells with a token"
+fi
 
 echo "smoke tests passed ($pass checks)"

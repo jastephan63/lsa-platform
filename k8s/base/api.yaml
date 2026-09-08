@@ -45,6 +45,11 @@ spec:
                 secretKeyRef:
                   name: lsa-db-credentials
                   key: LSA_API_DB_PASSWORD
+            - name: LSA_ANALYST_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: lsa-db-credentials
+                  key: LSA_ANALYST_API_TOKEN
           volumeMounts:
             - name: tmp
               mountPath: /tmp

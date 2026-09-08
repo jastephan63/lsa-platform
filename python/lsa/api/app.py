@@ -11,6 +11,7 @@ Design constraints, enforced structurally:
 
 import logging
 import os
+import secrets
 import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -19,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import psycopg
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from psycopg import sql
@@ -100,9 +101,32 @@ def guard_cells(rows: list[dict[str, Any]], n_col: str = "n_students") -> list[d
     return rows
 
 
+def require_analyst_token(request: Request) -> None:
+    """Bearer-token gate for the restricted tier.
+
+    Deliberately simple (a shared token from the environment, compared in
+    constant time) — the demonstrated boundary is that finer aggregates
+    require authentication and are audited; a real deployment would put
+    OIDC in front. Unset token = the tier is off, not open.
+    """
+    expected = os.environ.get("LSA_ANALYST_API_TOKEN", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="restricted tier is not configured")
+    supplied = request.headers.get("authorization", "")
+    if not supplied.startswith("Bearer ") or not secrets.compare_digest(
+        supplied.removeprefix("Bearer "), expected
+    ):
+        raise HTTPException(status_code=401, detail="missing or invalid token")
+
+
 def query_view(request: Request, view: str, order_by: str) -> list[dict[str, Any]]:
     """Read one published view as the API role and write the audit row."""
-    allowed = {"canton_competency", "language_region_competency", "canton_response_rate"}
+    allowed = {
+        "canton_competency",
+        "language_region_competency",
+        "canton_response_rate",
+        "canton_ses_competency",
+    }
     if view not in allowed:  # pragma: no cover - programming error, not input
         raise ValueError(f"view {view} is not published")
     with psycopg.connect(api_conninfo()) as conn, conn.cursor() as cur:
@@ -168,6 +192,14 @@ def language_region_results(request: Request) -> list[dict[str, Any]]:
 def response_rates(request: Request) -> list[dict[str, Any]]:
     """Response rates by canton with regional rank and national comparison."""
     return query_view(request, "canton_response_rate", "canton")
+
+
+@app.get("/api/restricted/cantons-by-ses")
+def canton_ses_results(request: Request) -> list[dict[str, Any]]:
+    """Canton x SES-quintile means. Authenticated tier: finer cells, same
+    suppression rule — most of these cells are small enough to be withheld."""
+    require_analyst_token(request)
+    return guard_cells(query_view(request, "canton_ses_competency", "canton"))
 
 
 @app.get("/", response_class=HTMLResponse)

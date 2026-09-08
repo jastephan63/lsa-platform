@@ -87,6 +87,7 @@ services:
       LSA_API_DB_PASSWORD: ${LSA_API_DB_PASSWORD}
       LSA_MIN_CELL_SIZE: ${LSA_MIN_CELL_SIZE:-10}
       LSA_LOG_LEVEL: ${LSA_LOG_LEVEL:-INFO}
+      LSA_ANALYST_API_TOKEN: ${LSA_ANALYST_API_TOKEN:-}
     ports:
       - "8000:8000"
     # The runtime filesystem is read-only; the process needs no capabilities.
