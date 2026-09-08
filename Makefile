@@ -7,7 +7,7 @@ SHELL := /bin/bash
 
 SEED ?= 20260908
 
-.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r
+.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r bootstrap backup smoke lint-shell
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -32,6 +32,18 @@ test-py: ## Run the Python test suite (DB tests need POSTGRES_* env)
 
 ingest: ## Validate and load data/raw into PostgreSQL
 	python/.venv/bin/lsa-ingest load --data-dir data/raw --report-dir data/reports
+
+bootstrap: ## Migrate, set up the API role, generate + ingest data (idempotent)
+	./scripts/bootstrap.sh
+
+backup: ## Dump the database to backups/ (pg_dump custom format)
+	./scripts/db_backup.sh
+
+smoke: ## Run the smoke-test suite against a running API (BASE_URL=... to override)
+	./scripts/smoke_test.sh --base-url $(or $(BASE_URL),http://localhost:8000)
+
+lint-shell: ## Shellcheck all operations scripts
+	shellcheck scripts/*.sh
 
 check-r: ## R CMD check the lsar analysis package
 	cd r/lsar && Rscript -e 'roxygen2::roxygenise()'

@@ -181,6 +181,19 @@ jobs:
           test "$(check "SELECT has_table_privilege('lsa_api','student','SELECT')")" = "f"
           test "$(check "SELECT has_table_privilege('lsa_api','canton_competency','SELECT')")" = "t"
 
+  shell:
+    name: shellcheck all scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck scripts/*.sh
+      - name: every script answers --help
+        run: |
+          for s in scripts/*.sh; do
+            "$s" --help >/dev/null
+          done
+
   hygiene:
     name: pre-commit hygiene
     runs-on: ubuntu-latest
