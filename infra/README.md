@@ -3,8 +3,8 @@
 Terraform module for the cloud layer under the Kubernetes cluster: private
 network, subnet, router to the provider's external network, security groups,
 an operator keypair, two instances (app, database), and one floating IP on
-the app instance only. It targets the OpenStack provider because Switch
-Engines — the cloud this repository's scenario assumes — is OpenStack-based.
+the app instance only. It targets the OpenStack provider — the stack many
+European academic and public-sector clouds run — rather than a hyperscaler.
 
 > **Honest scope:** this module is `terraform fmt`/`validate`/tflint-clean in
 > CI and reviewed by hand. It has **never been applied against a real
@@ -40,7 +40,7 @@ terraform {
   backend "s3" {
     bucket   = "lsa-terraform-state"
     key      = "lsa-platform.tfstate"
-    endpoint = "https://os.zhdk.cloud.switch.ch" # provider's object-store endpoint
+    endpoint = "https://objects.example-openstack.org" # your provider's object-store endpoint
     # credentials via AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (EC2-style keys)
     skip_credentials_validation = true
     skip_region_validation      = true
@@ -103,7 +103,7 @@ No modules.
 | <a name="input_allowed_ssh_cidr"></a> [allowed\_ssh\_cidr](#input\_allowed\_ssh\_cidr) | CIDR allowed to reach SSH on the app instance. Default deliberately requires an explicit decision instead of 0.0.0.0/0. | `string` | n/a | yes |
 | <a name="input_db_flavor_name"></a> [db\_flavor\_name](#input\_db\_flavor\_name) | Compute flavor for the database instance. | `string` | `"m1.small"` | no |
 | <a name="input_dns_nameservers"></a> [dns\_nameservers](#input\_dns\_nameservers) | DNS resolvers handed out on the subnet. | `list(string)` | <pre>[<br/>  "9.9.9.9",<br/>  "149.112.112.112"<br/>]</pre> | no |
-| <a name="input_external_network_name"></a> [external\_network\_name](#input\_external\_network\_name) | Name of the provider's external (public) network. On Switch Engines this is typically 'public'. | `string` | `"public"` | no |
+| <a name="input_external_network_name"></a> [external\_network\_name](#input\_external\_network\_name) | Name of the provider's external (public) network. On many OpenStack clouds this is simply 'public'. | `string` | `"public"` | no |
 | <a name="input_flavor_name"></a> [flavor\_name](#input\_flavor\_name) | Compute flavor for the application instance. | `string` | `"m1.small"` | no |
 | <a name="input_image_name"></a> [image\_name](#input\_image\_name) | Glance image for the instances (an Ubuntu LTS image name as published by the cloud). | `string` | `"Ubuntu 24.04 LTS"` | no |
 | <a name="input_name_prefix"></a> [name\_prefix](#input\_name\_prefix) | Prefix for every resource name, so multiple deployments can share a project. | `string` | `"lsa"` | no |

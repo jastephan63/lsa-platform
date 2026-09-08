@@ -5,7 +5,7 @@ variable "name_prefix" {
 }
 
 variable "external_network_name" {
-  description = "Name of the provider's external (public) network. On Switch Engines this is typically 'public'."
+  description = "Name of the provider's external (public) network. On many OpenStack clouds this is simply 'public'."
   type        = string
   default     = "public"
 }

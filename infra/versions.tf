@@ -1,8 +1,8 @@
 # Provider requirements. Auth is never configured here: the provider reads
 # OS_CLOUD / clouds.yaml or OS_* environment variables, so no credential can
 # end up in state-free files. This module targets any OpenStack cloud —
-# Switch Engines is OpenStack-based, which is why OpenStack and not a
-# hyperscaler provider.
+# chosen over a hyperscaler because OpenStack is what many European academic
+# and public-sector clouds run.
 
 terraform {
   required_version = ">= 1.5"

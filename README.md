@@ -4,30 +4,21 @@
 [![release](https://github.com/jastephan63/lsa-platform/actions/workflows/release.yml/badge.svg)](https://github.com/jastephan63/lsa-platform/actions/workflows/release.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Zusammenfassung auf Deutsch:** Dies ist ein Demonstrations- und
-Lernprojekt, kein Produktivsystem — gebaut, um technische Fähigkeiten mit
-lauffähigem Code zu belegen, ohne Verbindung zu ICER, ÜGK, PISA oder
-Switch. Es bildet eine fiktive Kompetenzerhebung ab: synthetische Daten
-(R), validierter Import nach PostgreSQL (Python), gewichtete Auswertung mit
-Kleinzellen-Unterdrückung (R-Paket), eine Aggregat-API (FastAPI) und die
-Betriebsschicht darum herum (Bash, Docker, Kubernetes, Terraform für
-OpenStack, CI/CD). Alle Daten sind erfunden; jeder Befehl in diesem README
-funktioniert auf einer sauberen Maschine mit Docker.
-Die Zuordnung von Anforderungen zu Belegen steht in
-[docs/requirements-map.md](docs/requirements-map.md).
+A personal practice project: a small end-to-end platform for a **fictional**
+large-scale competency assessment, built to work through a full stack —
+data generation in R, validated ingestion into PostgreSQL with Python,
+weighted analysis with disclosure control as an R package, an
+aggregate-only API, and the operations layer around it (Bash, Docker,
+Kubernetes, Terraform for OpenStack, CI/CD).
 
----
+It is a learning project, not production software: nothing here has carried
+real data or real traffic, and **all data is synthetic**
+([docs/data-spec.md](docs/data-spec.md)) — every school, student, and
+response comes from a seeded generator. What makes it more than a toy is
+that the whole thing actually runs, end to end, and every claim in this
+README is enforced by a required CI job.
 
-This is a **demonstration and learning project, not production
-experience**. It exists to evidence technical skills with working code. It
-has no affiliation with ICER, ÜGK, PISA, or Switch; all data is synthetic
-([docs/data-spec.md](docs/data-spec.md)); no metrics here describe any real
-deployment.
-
-## What it is
-
-A small end-to-end platform for a fictional large-scale competency
-assessment, shaped like the real thing:
+## What it does
 
 ```mermaid
 flowchart LR
@@ -41,11 +32,21 @@ flowchart LR
     API --> WEB["server-rendered\nresults page"]
 ```
 
-Around it: multi-stage hardened **Docker** images and a one-command
-**compose** stack, **Kubernetes** manifests (Kustomize base + overlays,
-probes, NetworkPolicies, PDB) deployable to a local **kind** cluster,
-a **Terraform** module for OpenStack (Switch Engines is OpenStack-based),
-and a **CI pipeline** where every claim in this README is a required job.
+The scenario is shaped like a national school assessment (cantons, language
+regions, sampling weights, plausible values) because that gives every layer
+a realistic job to do: the database has a reason for strict roles, the API
+has a reason to refuse row-level data, and the statistics have a reason to
+be weighted and disclosure-controlled.
+
+Two design points I'd call out:
+
+- **The same estimate is computed twice on purpose** — in SQL views and in
+  the R package — and a test requires them to agree exactly, including
+  which small cells get suppressed. Two implementations as mutual
+  verification.
+- **Least privilege is tested, not asserted**: a test connects with the
+  API's own database credentials and expects `InsufficientPrivilege` when
+  it tries to read student-level data.
 
 ## Quick start
 
@@ -88,29 +89,30 @@ Kubernetes instead (needs kind + kubectl + kustomize):
 | [docker/](docker), [compose.yaml](compose.yaml) | Hardened images and the local stack |
 | [k8s/](k8s) | Kustomize base + dev/prod overlays |
 | [infra/](infra) | Terraform module for OpenStack ([module README](infra/README.md)) |
-| [docs/](docs) | [security](docs/security.md) · [datenschutz](docs/datenschutz.md) · [network](docs/network.md) · [ADRs](docs/adr) · [requirements map](docs/requirements-map.md) |
+| [docs/](docs) | [security](docs/security.md) · [datenschutz](docs/datenschutz.md) (German) · [network](docs/network.md) · [ADRs](docs/adr) |
 
-## Was ich dabei gelernt habe
+## Notes from building it
 
-Ehrlichkeit gehört zum Konzept dieses Repos, also auch hier:
+Some tools here were new to me when I built this (Kubernetes, Terraform,
+the OpenStack vocabulary); others I already used daily (Python, R, SQL,
+Bash, Git, CI, Docker). Concrete lessons the project taught me the hard
+way, kept here because they're the kind of thing you only learn by running
+things:
 
-- **Neu für mich in diesem Projekt:** Kubernetes (Kustomize, Probes,
-  NetworkPolicies, kind), Terraform und die OpenStack-Begriffswelt
-  (Neutron-Netze, Security Groups, Floating IPs). Die Manifeste und das
-  Modul sind sorgfältig gebaut und CI-geprüft, aber ich habe sie nie in
-  einem echten Cluster- oder Cloud-Betrieb verantwortet. Konkrete
-  Stolpersteine, die dieses Projekt mich gelehrt hat: ein Init-Container
-  ohne passwd-Eintrag bricht `pg_isready` client-seitig; R braucht ein
-  beschreibbares `/tmp` bei read-only Root-Filesystem; der
-  ingress-nginx-Webhook ist nach "Pod ready" noch kurz nicht erreichbar.
-- **Bereits vertraut:** Python, R, SQL, Bash, Git, CI-Pipelines und Docker
-  im Entwicklungsalltag.
+- An init container running as a uid with no passwd entry breaks
+  `pg_isready` *client-side* — libpq cannot derive a default username.
+- R refuses to start work without a writable temp directory, which a
+  read-only root filesystem takes away; mount an emptyDir at `/tmp`.
+- ingress-nginx's admission webhook lags its pod's Ready condition by a few
+  seconds; applying an Ingress immediately after needs a retry.
+- `pg_dump` from a newer major version emits settings an older server
+  rejects — backup tooling must match the server's major version.
 
-## The honest limits
+## Honest limits
 
-- Never operated at scale, never carried real data, never applied against a
-  real OpenStack project ([infra/README.md](infra/README.md) marks what
-  `validate` does and does not prove).
+- Never operated at scale and never applied against a real cloud project
+  ([infra/README.md](infra/README.md) marks exactly what `terraform
+  validate` does and does not prove).
 - Plausible values use a simplified EAP draw, not operational PV
   methodology; variance estimation stops at Rubin's between-imputation term
   because the synthetic design carries no replicate weights. Both
