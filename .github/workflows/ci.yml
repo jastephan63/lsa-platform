@@ -221,9 +221,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install kustomize and kubeconform
+      - name: Install kubeconform (kustomize is preinstalled on runners)
         run: |
-          curl -sL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- 5.4.3 /usr/local/bin >/dev/null
+          kustomize version
           curl -sL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | sudo tar -xz -C /usr/local/bin kubeconform
       - name: Render overlays and validate against the Kubernetes schemas
         run: |
@@ -239,8 +239,8 @@ jobs:
       - uses: helm/kind-action@v1.15.0
         with:
           install_only: true
-      - name: Install kustomize
-        run: curl -sL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- 5.4.3 /usr/local/bin >/dev/null
+      - name: Kustomize is preinstalled on runners
+        run: kustomize version
       - name: Deploy the whole platform on kind
         env:
           POSTGRES_USER: lsa_admin
