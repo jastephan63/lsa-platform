@@ -51,10 +51,15 @@ and a **CI pipeline** where every claim in this README is a required job.
 
 ```bash
 git clone https://github.com/jastephan63/lsa-platform && cd lsa-platform
-cp .env.example .env          # set your own local passwords
-make up                       # full stack: db → migrate → generate → ingest → api
-make smoke                    # 7 end-to-end checks against http://localhost:8000
+cp .env.example .env
+make up
+make smoke
 ```
+
+Line by line: copy the env template (then set your own local passwords in
+`.env`), start the full stack (db → migrate → generate → ingest → api), and
+run 7 end-to-end checks against http://localhost:8000. No inline comments in
+the code block — macOS's default zsh would treat them as arguments.
 
 Kubernetes instead (needs kind + kubectl + kustomize):
 `set -a; . ./.env; set +a; make kind-up` — then `make smoke BASE_URL=http://localhost:8080`.

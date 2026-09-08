@@ -8,10 +8,15 @@ like a real one.
 ```bash
 git clone https://github.com/jastephan63/lsa-platform
 cd lsa-platform
-cp .env.example .env        # adjust the passwords
-make hooks                  # install pre-commit hooks
-make install-py             # python venv + dev tools
+cp .env.example .env
+make hooks
+make install-py
 ```
+
+In order: clone, copy the env template (then adjust the passwords in
+`.env`), install the pre-commit hooks, and create the Python venv with dev
+tools. Comments stay out of the code block because zsh — the macOS default
+shell — treats interactive `#` as a literal argument.
 
 `make help` lists every documented entry point. The full local stack is
 `make up` (Docker) or `make kind-up` (Kubernetes-in-Docker).
