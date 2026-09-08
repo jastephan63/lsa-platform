@@ -200,7 +200,7 @@ jobs:
       - name: Build ${{ matrix.image }} image
         run: docker build -f docker/${{ matrix.image }}.Dockerfile -t lsa-${{ matrix.image }}:ci .
       - name: Trivy vulnerability scan (fails on fixable HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: lsa-${{ matrix.image }}:ci
           severity: HIGH,CRITICAL
