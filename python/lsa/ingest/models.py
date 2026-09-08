@@ -15,7 +15,7 @@ CANTONS = frozenset(
 
 
 class SchoolRow(BaseModel):
-    school_id: str = Field(pattern=r"^SCH\d{4}$")
+    school_id: str = Field(pattern=r"^SCH\d{4,}$")
     canton: str
     language_region: Literal["de", "fr", "it"]
     n_students: int = Field(gt=0)
@@ -30,8 +30,8 @@ class SchoolRow(BaseModel):
 
 
 class StudentRow(BaseModel):
-    student_id: str = Field(pattern=r"^STU\d{5}$")
-    school_id: str = Field(pattern=r"^SCH\d{4}$")
+    student_id: str = Field(pattern=r"^STU\d{5,}$")
+    school_id: str = Field(pattern=r"^SCH\d{4,}$")
     canton: str
     language_region: Literal["de", "fr", "it"]
     sex: Literal["f", "m"]
@@ -56,7 +56,7 @@ class ItemRow(BaseModel):
 
 
 class ResponseRow(BaseModel):
-    student_id: str = Field(pattern=r"^STU\d{5}$")
+    student_id: str = Field(pattern=r"^STU\d{5,}$")
     item_id: str = Field(pattern=r"^IT\d{2}$")
     # CSV input arrives as strings; a constrained int coerces "0"/"1" while
     # still rejecting anything outside the dichotomous range.
@@ -72,13 +72,13 @@ class ReplicateRow(BaseModel):
 
 
 class ReplicateWeightRow(BaseModel):
-    student_id: str = Field(pattern=r"^STU\d{5}$")
+    student_id: str = Field(pattern=r"^STU\d{5,}$")
     replicate_id: int = Field(ge=1)
     weight: float = Field(ge=0)
 
 
 class PlausibleValueRow(BaseModel):
-    student_id: str = Field(pattern=r"^STU\d{5}$")
+    student_id: str = Field(pattern=r"^STU\d{5,}$")
     # The reporting scale is mean 500, SD 100; values far outside are a sign
     # of a broken upstream scaling step, not a very able student.
     pv1: float = Field(ge=0, le=1000)

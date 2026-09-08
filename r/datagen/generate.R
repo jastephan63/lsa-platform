@@ -234,9 +234,11 @@ stopifnot(
     tolerance = 1e-6
   )),
   # Zones partition each stratum's schools; every responder appears in each
-  # replicate; at most a bounded number of replicates overall.
+  # replicate. The count is bounded by the target plus the minimum-two-zones
+  # floor per stratum (worst case: every stratum rounds to zero and is
+  # bumped to 2).
   sum(replicates$n_schools) == nrow(schools),
-  nrow(replicates) <= 130,
+  nrow(replicates) <= max_zones + 2 * nrow(cantons),
   nrow(rep_weights) == nrow(resp_students) * nrow(replicates),
   all(rep_weights$weight >= 0)
 )

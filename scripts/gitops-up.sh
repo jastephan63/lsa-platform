@@ -38,7 +38,7 @@ kubectl apply --server-side --force-conflicts -n argocd \
 # This repo's kustomization reads migrations/scripts from the repo root,
 # which needs the relaxed load restrictor server-side in Argo.
 kubectl -n argocd patch configmap argocd-cm --type merge \
-  -p '{"data":{"kustomize.buildOptions":"--load-restrictor=LoadRestrictionsNone"}}'
+  -p '{"data":{"kustomize.buildOptions":"--load-restrictor=LoadRestrictionsNone","resource.customizations.health.PersistentVolumeClaim":"hs = {}\nif obj.status ~= nil and obj.status.phase == \"Pending\" then\n  hs.status = \"Healthy\"\n  hs.message = \"WaitForFirstConsumer: binds when the backup job first mounts it\"\n  return hs\nend\nif obj.status ~= nil and obj.status.phase == \"Bound\" then\n  hs.status = \"Healthy\"\n  return hs\nend\nhs.status = \"Progressing\"\nreturn hs","resource.customizations.health.networking.k8s.io_Ingress":"hs = {}\nhs.status = \"Healthy\"\nhs.message = \"kind ingress publishes no LB status; reachability is verified by the smoke tests\"\nreturn hs"}}'
 kubectl -n argocd rollout status deployment/argocd-repo-server --timeout=300s
 kubectl -n argocd rollout status deployment/argocd-server --timeout=300s
 
