@@ -22,6 +22,24 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  datagen:
+    name: R data generator (runs + reproducible)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - name: Generate twice with the same seed and require identical output
+        run: |
+          Rscript r/datagen/generate.R --seed 20260908 --out /tmp/run-a
+          Rscript r/datagen/generate.R --seed 20260908 --out /tmp/run-b
+          diff -r --exclude=manifest.csv /tmp/run-a /tmp/run-b
+      - name: Sanity-check row counts
+        run: |
+          test "$(tail -n +2 /tmp/run-a/schools.csv | wc -l)" -gt 50
+          test "$(tail -n +2 /tmp/run-a/students.csv | wc -l)" -gt 1000
+
   hygiene:
     name: pre-commit hygiene
     runs-on: ubuntu-latest
