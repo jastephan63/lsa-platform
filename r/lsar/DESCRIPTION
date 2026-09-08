@@ -1,0 +1,18 @@
+Package: lsar
+Title: Weighted Estimation and Disclosure Control for the lsa-platform Demo
+Version: 0.1.0
+Authors@R: person("Jake", "Stephan", email = "jake@stephan-j.com", role = c("aut", "cre"))
+Description: Analysis functions for the synthetic assessment data of the
+    lsa-platform demonstration project: design-weighted estimation over
+    plausible values and small-cell suppression before publication. Reads
+    from the project's PostgreSQL database. All data is synthetic.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports:
+    DBI,
+    RPostgres
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

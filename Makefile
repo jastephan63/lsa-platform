@@ -7,7 +7,7 @@ SHELL := /bin/bash
 
 SEED ?= 20260908
 
-.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest
+.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -32,6 +32,12 @@ test-py: ## Run the Python test suite (DB tests need POSTGRES_* env)
 
 ingest: ## Validate and load data/raw into PostgreSQL
 	python/.venv/bin/lsa-ingest load --data-dir data/raw --report-dir data/reports
+
+check-r: ## R CMD check the lsar analysis package
+	cd r/lsar && Rscript -e 'roxygen2::roxygenise()'
+	R CMD build r/lsar --no-manual
+	R CMD check lsar_*.tar.gz --no-manual
+	rm -rf lsar_*.tar.gz lsar.Rcheck
 
 hooks: ## Install the git pre-commit hooks
 	pre-commit install

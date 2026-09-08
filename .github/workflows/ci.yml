@@ -87,6 +87,49 @@ jobs:
         working-directory: python
         run: pytest --cov=lsa --cov-fail-under=75
 
+  r-package:
+    name: R CMD check (lsar)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lsa
+          POSTGRES_USER: lsa_admin
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U lsa_admin -d lsa"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: lsa
+      POSTGRES_USER: lsa_admin
+      POSTGRES_PASSWORD: ci-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: r/lsar
+          extra-packages: any::rcmdcheck
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Load the database so the R-vs-SQL agreement test runs
+        run: |
+          Rscript r/datagen/generate.R --out data/raw
+          ./scripts/migrate.sh
+          pip install ./python
+          lsa-ingest load --data-dir data/raw --report-dir data/reports --strict
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          working-directory: r/lsar
+          error-on: '"warning"'
+
   sql:
     name: SQL lint + migration test
     runs-on: ubuntu-latest
