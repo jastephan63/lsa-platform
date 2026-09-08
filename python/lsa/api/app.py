@@ -24,6 +24,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from psycopg import sql
 
+from lsa.api import metrics
 from lsa.api.logging import configure, request_id_var
 
 logger = logging.getLogger("lsa.api")
@@ -71,6 +72,7 @@ async def request_context(
     start = time.perf_counter()
     response = await call_next(request)
     response.headers["x-request-id"] = request_id
+    metrics.record(request, response.status_code, time.perf_counter() - start)
     logger.info(
         "request",
         extra={
@@ -124,6 +126,14 @@ def query_view(request: Request, view: str, order_by: str) -> list[dict[str, Any
         return [dict(zip(cols, row, strict=True)) for row in cur.fetchall()]
 
 
+@app.get("/metrics")
+def metrics_endpoint() -> Response:
+    """Prometheus scrape target. Operational counters only — no assessment
+    data of any granularity leaves through this endpoint."""
+    payload, content_type = metrics.latest()
+    return Response(content=payload, media_type=content_type)
+
+
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     """Liveness: the process is up. No dependencies checked."""
@@ -162,8 +172,15 @@ def response_rates(request: Request) -> list[dict[str, Any]]:
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request) -> Response:
-    """Minimal server-rendered results page."""
+    """Minimal server-rendered results page with an inline SVG chart."""
     rows = guard_cells(query_view(request, "canton_competency", "canton"))
+    # Bar geometry is computed here, not in the template: scores map onto a
+    # fixed 400-600 reporting-scale window so bars stay comparable across
+    # datasets, and the template stays free of arithmetic.
+    for row in rows:
+        if row["mean_score"] is not None:
+            fraction = (float(row["mean_score"]) - 400.0) / 200.0
+            row["bar_pct"] = round(max(0.0, min(1.0, fraction)) * 100, 1)
     return templates.TemplateResponse(
         request, "index.html", {"rows": rows, "min_cell_size": MIN_CELL_SIZE}
     )

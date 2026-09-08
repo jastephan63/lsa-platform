@@ -25,6 +25,28 @@
     students, schools, or results. Cells with fewer than
     {{ min_cell_size }} students are suppressed.
   </p>
+  <h2>Weighted mean score by canton</h2>
+  <svg viewBox="0 0 640 {{ rows|length * 18 + 24 }}" role="img"
+       aria-label="Bar chart of weighted mean scores by canton"
+       style="width:100%; height:auto; font-size:11px;">
+    {# Axis reference lines at 450 / 500 / 550 on the 400-600 window #}
+    {% for tick in [450, 500, 550] %}
+    <line x1="{{ 60 + (tick - 400) / 200 * 560 }}" y1="0"
+          x2="{{ 60 + (tick - 400) / 200 * 560 }}" y2="{{ rows|length * 18 + 4 }}"
+          stroke="#ddd"/>
+    <text x="{{ 60 + (tick - 400) / 200 * 560 }}" y="{{ rows|length * 18 + 16 }}"
+          text-anchor="middle" fill="#666">{{ tick }}</text>
+    {% endfor %}
+    {% for row in rows %}
+    <text x="54" y="{{ loop.index0 * 18 + 13 }}" text-anchor="end" fill="#333">{{ row.canton }}</text>
+    {% if row.bar_pct is defined %}
+    <rect x="60" y="{{ loop.index0 * 18 + 3 }}" height="12"
+          width="{{ row.bar_pct / 100 * 560 }}" fill="#4a7ab5" rx="2"/>
+    {% else %}
+    <text x="64" y="{{ loop.index0 * 18 + 13 }}" fill="#999" font-style="italic">suppressed</text>
+    {% endif %}
+    {% endfor %}
+  </svg>
   <table>
     <thead>
       <tr><th>Canton</th><th>Language region</th>
