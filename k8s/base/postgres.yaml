@@ -1,0 +1,113 @@
+# PostgreSQL as a StatefulSet with a persistent volume per replica.
+#
+# PRODUCTION NOTE: on Switch Engines (or any cloud), a managed/database-as-a-
+# service offering is usually the better call — backups, PITR, patching and
+# failover are someone else's pager. This StatefulSet exists so the demo is
+# self-contained and so the manifest shape (volumeClaimTemplates, headless
+# service, probes) is on display. See docs/adr/ for the trade-off.
+apiVersion: v1
+kind: Service
+metadata:
+  name: lsa-db
+  labels:
+    app.kubernetes.io/name: lsa-db
+spec:
+  clusterIP: None  # headless: stable DNS for the StatefulSet pod
+  selector:
+    app.kubernetes.io/name: lsa-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: lsa-db
+  labels:
+    app.kubernetes.io/name: lsa-db
+spec:
+  serviceName: lsa-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lsa-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: lsa-db
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999    # postgres uid in the official image
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: lsa-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: lsa-db-credentials
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lsa-db-credentials
+                  key: POSTGRES_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

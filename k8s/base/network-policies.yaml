@@ -1,0 +1,91 @@
+# Default-deny first, then allow exactly the flows the system needs:
+#   ingress-controller → api:8000        (north-south)
+#   api / setup job    → db:5432         (east-west)
+#   everyone           → kube-dns:53     (name resolution)
+# NOTE: enforcement needs a CNI that implements NetworkPolicy (Calico,
+# Cilium, …). kind's default CNI does NOT enforce these — documented honestly
+# in docs/network.md; the manifests still validate and express the intent.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-ingress-from-controller
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: lsa-api
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-ingress-from-workloads
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: lsa-db
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: lsa-api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: lsa-setup
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: workloads-egress-to-db
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [lsa-api, lsa-setup]
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: lsa-db
+      ports:
+        - protocol: TCP
+          port: 5432

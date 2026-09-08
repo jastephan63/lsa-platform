@@ -1,0 +1,29 @@
+# Prod-shaped overlay: registry images pinned by tag, real hostname, more
+# replicas. Never applied anywhere as part of this demonstration project —
+# it exists to show what separates dev from prod when the base is shared.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+images:
+  - name: lsa-api
+    newName: ghcr.io/jastephan63/lsa-platform-api
+    newTag: v0.1.0
+  - name: lsa-analysis
+    newName: ghcr.io/jastephan63/lsa-platform-analysis
+    newTag: v0.1.0
+
+replicas:
+  - name: lsa-api
+    count: 3
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: lsa.example.org
+    target:
+      kind: Ingress
+      name: lsa-api

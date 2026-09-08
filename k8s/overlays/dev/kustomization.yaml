@@ -1,0 +1,23 @@
+# Dev overlay: single replica, local image tags (loaded into kind by
+# scripts/kind-up.sh), localhost ingress host.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: lsa-api
+  - patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: localhost
+    target:
+      kind: Ingress
+      name: lsa-api

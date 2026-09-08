@@ -1,0 +1,50 @@
+# Base manifests. Build with:
+#   kustomize build --load-restrictor=LoadRestrictionsNone k8s/overlays/dev
+# The load restrictor is relaxed because the migration files and operational
+# scripts live once, at the repository root, and are projected into
+# ConfigMaps from there — duplicating them under k8s/ would let the two
+# copies drift apart.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: lsa
+
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - api.yaml
+  - setup-job.yaml
+  - ingress.yaml
+  - network-policies.yaml
+  - pdb.yaml
+
+configMapGenerator:
+  - name: lsa-config
+    literals:
+      - POSTGRES_HOST=lsa-db
+      - POSTGRES_PORT="5432"
+      - POSTGRES_DB=lsa
+      - LSA_MIN_CELL_SIZE="10"
+      - LSA_LOG_LEVEL=INFO
+  - name: lsa-migrations
+    files:
+      - ../../db/migrations/0001_schema.sql
+      - ../../db/migrations/0002_views.sql
+      - ../../db/migrations/0003_roles.sql
+      - ../../db/migrations/0004_audit.sql
+      - ../../db/migrations/0005_analyst_role.sql
+  - name: lsa-scripts
+    files:
+      - ../../scripts/migrate.sh
+      - ../../scripts/bootstrap.sh
+  - name: lsa-datagen-script
+    files:
+      - ../../r/datagen/generate.R
+
+# The lsa-db-credentials Secret is deliberately NOT a resource here: secrets
+# never enter git. It is created out-of-band (scripts/kind-up.sh does it for
+# local clusters from your .env; a real cluster would use SealedSecrets or an
+# external secrets operator). Expected keys:
+#   POSTGRES_USER, POSTGRES_PASSWORD,
+#   LSA_API_DB_USER, LSA_API_DB_PASSWORD,
+#   LSA_ANALYST_DB_USER, LSA_ANALYST_DB_PASSWORD

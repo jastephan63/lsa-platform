@@ -188,6 +188,50 @@ jobs:
           test "$(check "SELECT has_table_privilege('lsa_analyst','student','SELECT')")" = "t"
           test "$(check "SELECT has_table_privilege('lsa_analyst','api_audit_log','SELECT')")" = "f"
 
+  k8s-validate:
+    name: kustomize build + kubeconform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kustomize and kubeconform
+        run: |
+          curl -sL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- 5.4.3 /usr/local/bin >/dev/null
+          curl -sL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | sudo tar -xz -C /usr/local/bin kubeconform
+      - name: Render overlays and validate against the Kubernetes schemas
+        run: |
+          kustomize build --load-restrictor=LoadRestrictionsNone k8s/overlays/dev > /tmp/dev.yaml
+          kustomize build --load-restrictor=LoadRestrictionsNone k8s/overlays/prod > /tmp/prod.yaml
+          kubeconform -strict -summary /tmp/dev.yaml /tmp/prod.yaml
+
+  e2e-kind:
+    name: e2e — kind deploy + smoke tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1.15.0
+        with:
+          install_only: true
+      - name: Install kustomize
+        run: curl -sL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- 5.4.3 /usr/local/bin >/dev/null
+      - name: Deploy the whole platform on kind
+        env:
+          POSTGRES_USER: lsa_admin
+          POSTGRES_PASSWORD: ci-only-password
+          LSA_API_DB_USER: lsa_api
+          LSA_API_DB_PASSWORD: ci-api-password
+          LSA_ANALYST_DB_USER: lsa_analyst
+          LSA_ANALYST_DB_PASSWORD: ci-analyst-password
+        run: ./scripts/kind-up.sh
+      - name: Run the smoke-test suite through the ingress
+        run: ./scripts/smoke_test.sh --base-url http://localhost:8080
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          kubectl -n lsa get pods -o wide || true
+          kubectl -n lsa describe job lsa-setup || true
+          kubectl -n lsa logs job/lsa-setup --all-containers --prefix --tail=50 || true
+          kubectl -n lsa logs deploy/lsa-api --tail=50 || true
+
   containers:
     name: Build images, scan (Trivy), SBOM (Syft)
     runs-on: ubuntu-latest

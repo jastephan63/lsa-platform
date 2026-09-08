@@ -1,0 +1,11 @@
+# Voluntary disruptions (node drains, upgrades) may take down at most one
+# API pod at a time, so the service stays up through maintenance.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: lsa-api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lsa-api

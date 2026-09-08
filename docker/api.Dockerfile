@@ -12,9 +12,11 @@ COPY python/lsa ./lsa
 RUN pip install --no-cache-dir --prefix=/install .
 
 FROM ${PYTHON_BASE}
-# Never run as root: the service needs no privileges at all. Fixed uid/gid so
-# files on shared volumes are readable across this and the analysis image.
-RUN groupadd --system --gid 10001 lsa \
+# Security upgrades since the pinned digest, then a non-root user: the
+# service needs no privileges at all. Fixed uid/gid so files on shared
+# volumes stay readable across this and the analysis image.
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 10001 lsa \
     && useradd --system --uid 10001 --gid lsa --no-create-home lsa
 COPY --from=builder /install /usr/local
 USER lsa

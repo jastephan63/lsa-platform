@@ -7,7 +7,7 @@ SHELL := /bin/bash
 
 SEED ?= 20260908
 
-.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r bootstrap backup smoke lint-shell up down analysis
+.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r bootstrap backup smoke lint-shell up down analysis kind-up kind-down validate-k8s
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -54,6 +54,16 @@ down: ## Stop the stack (keep data volumes)
 
 analysis: ## Run the R analysis batch job against the running stack
 	docker compose run --rm analysis
+
+kind-up: ## Deploy everything to a local kind cluster (secrets from environment)
+	./scripts/kind-up.sh
+
+kind-down: ## Delete the local kind cluster
+	kind delete cluster --name lsa
+
+validate-k8s: ## Render both overlays and validate with kubeconform
+	kustomize build --load-restrictor=LoadRestrictionsNone k8s/overlays/dev | kubeconform -strict -summary
+	kustomize build --load-restrictor=LoadRestrictionsNone k8s/overlays/prod | kubeconform -strict -summary
 
 check-r: ## R CMD check the lsar analysis package
 	cd r/lsar && Rscript -e 'roxygen2::roxygenise()'

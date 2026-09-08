@@ -1,0 +1,104 @@
+# One ordered setup Job replaces compose's depends_on chain:
+#   init 1: wait for postgres  →  init 2: migrate + roles  →
+#   init 3: generate data      →  main: validate + ingest
+# Init containers run strictly in sequence; the emptyDir volume carries the
+# generated CSVs from the datagen step to the ingest step.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lsa-setup
+  labels:
+    app.kubernetes.io/name: lsa-setup
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: lsa-setup
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: wait-for-db
+          image: postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+          securityContext: &restricted
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          # -U is required: the pod runs as a uid without a passwd entry, so
+          # libpq cannot derive a default username and errors client-side.
+          command: ["sh", "-c",
+                    "until pg_isready -h \"$POSTGRES_HOST\" -p \"$POSTGRES_PORT\" -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"; do sleep 2; done"]
+          envFrom: &setupenv
+            - configMapRef:
+                name: lsa-config
+            - secretRef:
+                name: lsa-db-credentials
+          resources: &small
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+        - name: bootstrap
+          image: postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+          securityContext: *restricted
+          command: ["/repo/scripts/bootstrap.sh", "--skip-data"]
+          envFrom: *setupenv
+          volumeMounts:
+            - name: scripts
+              mountPath: /repo/scripts
+            - name: migrations
+              mountPath: /repo/db/migrations
+          resources: *small
+        - name: datagen
+          image: lsa-analysis:local
+          securityContext: *restricted
+          command: ["Rscript", "/repo/datagen/generate.R", "--out", "/data/raw"]
+          volumeMounts:
+            - name: datagen-script
+              mountPath: /repo/datagen
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp  # R needs a writable TempDir; rootfs is read-only
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+      containers:
+        - name: ingest
+          image: lsa-api:local
+          securityContext: *restricted
+          command: ["lsa-ingest", "load", "--data-dir", "/data/raw",
+                    "--report-dir", "/data/reports", "--strict"]
+          envFrom: *setupenv
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources: *small
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: lsa-scripts
+            defaultMode: 0555
+        - name: migrations
+          configMap:
+            name: lsa-migrations
+        - name: datagen-script
+          configMap:
+            name: lsa-datagen-script
