@@ -172,11 +172,11 @@ jobs:
             PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U lsa_admin -d lsa \
               --no-psqlrc -tA -c "$1"
           }
-          # 7 domain tables + schema_migrations + api_audit_log
+          # 8 domain tables + schema_migrations + api_audit_log
           test "$(check "SELECT count(*) FROM information_schema.tables
-                         WHERE table_schema='public' AND table_type='BASE TABLE'")" = "9"
+                         WHERE table_schema='public' AND table_type='BASE TABLE'")" = "10"
           test "$(check "SELECT count(*) FROM information_schema.views
-                         WHERE table_schema='public'")" = "5"
+                         WHERE table_schema='public'")" = "9"
           test "$(check "SELECT count(*) FROM pg_roles
                          WHERE rolname IN ('lsa_api','lsa_analyst')")" = "2"
           # Privilege split: the API role must NOT read base tables; the
@@ -187,6 +187,10 @@ jobs:
           test "$(check "SELECT has_table_privilege('lsa_api','api_audit_log','SELECT')")" = "f"
           test "$(check "SELECT has_table_privilege('lsa_analyst','student','SELECT')")" = "t"
           test "$(check "SELECT has_table_privilege('lsa_analyst','api_audit_log','SELECT')")" = "f"
+          # The results store: analyst writes, API reads, API never writes.
+          test "$(check "SELECT has_table_privilege('lsa_analyst','analysis_result','INSERT')")" = "t"
+          test "$(check "SELECT has_table_privilege('lsa_api','analysis_result','SELECT')")" = "t"
+          test "$(check "SELECT has_table_privilege('lsa_api','analysis_result','INSERT')")" = "f"
 
   backup-restore:
     name: backup + restore drill

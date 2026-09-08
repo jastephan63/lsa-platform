@@ -6,16 +6,27 @@
   <title>lsa-platform — results</title>
   <style>
     html { background: #fff; }
-    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 46rem;
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 52rem;
            padding: 0 1rem; color: #1a1a1a; background: #fff; }
     .notice { background: #fff3cd; border: 1px solid #e0c869; padding: .6rem 1rem;
               border-radius: 6px; font-size: .9rem; }
-    table { border-collapse: collapse; width: 100%; margin-top: 1.5rem; }
-    th, td { text-align: left; padding: .4rem .8rem; border-bottom: 1px solid #ddd; }
+    .cards { display: flex; flex-wrap: wrap; gap: .8rem; margin: 1.2rem 0; }
+    .card { flex: 1 1 8rem; border: 1px solid #ddd; border-radius: 8px;
+            padding: .7rem .9rem; text-align: center; }
+    .card b { display: block; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+    .card span { font-size: .78rem; color: #555; }
+    h2 { margin-top: 2.2rem; }
+    table { border-collapse: collapse; width: 100%; margin-top: .8rem; font-size: .92rem; }
+    th, td { text-align: left; padding: .35rem .7rem; border-bottom: 1px solid #ddd; }
     th { border-bottom: 2px solid #999; }
-    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     .suppressed { color: #888; font-style: italic; }
-    footer { margin-top: 2rem; font-size: .8rem; color: #666; }
+    .band { display: flex; height: 14px; border-radius: 3px; overflow: hidden; min-width: 10rem; }
+    .band div { height: 100%; }
+    .b-low { background: #d98c8c; } .b-mid { background: #a8c6e8; } .b-high { background: #7dab7d; }
+    .apilink { font-size: .78rem; color: #666; margin-left: .5rem; font-weight: normal; }
+    footer { margin-top: 2.5rem; font-size: .8rem; color: #666; }
+    .hint { font-size: .85rem; color: #555; }
   </style>
 </head>
 <body>
@@ -23,13 +34,37 @@
   <p class="notice">
     Demonstration project with <strong>synthetic data</strong>. No real
     students, schools, or results. Cells with fewer than
-    {{ min_cell_size }} students are suppressed.
+    {{ min_cell_size }} students are suppressed. Every table below is also
+    available as JSON — follow the <code>api</code> links, or browse
+    everything at <a href="/docs">/docs</a>.
   </p>
-  <h2>Weighted mean score by canton</h2>
+
+  {% if national %}
+  <div class="cards">
+    <div class="card"><b>{{ national.n_schools }}</b><span>schools sampled</span></div>
+    <div class="card"><b>{{ national.n_participants }}</b><span>participating students</span></div>
+    <div class="card"><b>{{ (national.response_rate * 100)|round(1) }}%</b><span>response rate</span></div>
+    <div class="card"><b>{{ national.mean_score }}</b><span>national mean score</span></div>
+    <div class="card"><b>{{ national.n_items }}</b><span>test items</span></div>
+  </div>
+  <p class="hint">National overview
+    <a class="apilink" href="/api/results/national">api</a></p>
+  {% endif %}
+
+  <h2>Mean score by canton
+    <a class="apilink" href="/api/results/cantons">api</a>
+    <a class="apilink" href="/api/results/uncertainty">api: uncertainty</a></h2>
+  {% if has_inference %}
+  <p class="hint">Whiskers show 95% confidence intervals (jackknife
+    replicate weights, Rubin-combined across plausible values), published by
+    the R analysis job.</p>
+  {% else %}
+  <p class="hint">Confidence intervals appear here once the R analysis job
+    has published (<code>make analysis</code>).</p>
+  {% endif %}
   <svg viewBox="0 0 640 {{ rows|length * 18 + 24 }}" role="img"
-       aria-label="Bar chart of weighted mean scores by canton"
+       aria-label="Bar chart of weighted mean scores by canton with confidence intervals"
        style="width:100%; height:auto; font-size:11px;">
-    {# Axis reference lines at 450 / 500 / 550 on the 400-600 window #}
     {% for tick in [450, 500, 550] %}
     <line x1="{{ 60 + (tick - 400) / 200 * 560 }}" y1="0"
           x2="{{ 60 + (tick - 400) / 200 * 560 }}" y2="{{ rows|length * 18 + 4 }}"
@@ -42,6 +77,17 @@
     {% if row.bar_pct is defined %}
     <rect x="60" y="{{ loop.index0 * 18 + 3 }}" height="12"
           width="{{ row.bar_pct / 100 * 560 }}" fill="#4a7ab5" rx="2"/>
+    {% if row.ci_lo_pct is defined %}
+    <line x1="{{ 60 + row.ci_lo_pct / 100 * 560 }}" y1="{{ loop.index0 * 18 + 9 }}"
+          x2="{{ 60 + row.ci_hi_pct / 100 * 560 }}" y2="{{ loop.index0 * 18 + 9 }}"
+          stroke="#1a1a1a" stroke-width="1.4"/>
+    <line x1="{{ 60 + row.ci_lo_pct / 100 * 560 }}" y1="{{ loop.index0 * 18 + 5 }}"
+          x2="{{ 60 + row.ci_lo_pct / 100 * 560 }}" y2="{{ loop.index0 * 18 + 13 }}"
+          stroke="#1a1a1a" stroke-width="1.4"/>
+    <line x1="{{ 60 + row.ci_hi_pct / 100 * 560 }}" y1="{{ loop.index0 * 18 + 5 }}"
+          x2="{{ 60 + row.ci_hi_pct / 100 * 560 }}" y2="{{ loop.index0 * 18 + 13 }}"
+          stroke="#1a1a1a" stroke-width="1.4"/>
+    {% endif %}
     {% else %}
     <text x="64" y="{{ loop.index0 * 18 + 13 }}" fill="#999" font-style="italic">suppressed</text>
     {% endif %}
@@ -49,9 +95,8 @@
   </svg>
   <table>
     <thead>
-      <tr><th>Canton</th><th>Language region</th>
-          <th style="text-align:right">Students (unweighted)</th>
-          <th style="text-align:right">Weighted mean score</th></tr>
+      <tr><th>Canton</th><th>Region</th><th class="num">Students</th>
+          <th class="num">Mean</th><th class="num">SE</th><th class="num">95% CI</th></tr>
     </thead>
     <tbody>
       {% for row in rows %}
@@ -60,14 +105,104 @@
         <td>{{ row.language_region }}</td>
         <td class="num">{{ row.n_students }}</td>
         {% if row.mean_score is none %}
-        <td class="num suppressed">suppressed</td>
+        <td class="num suppressed" colspan="3">suppressed</td>
         {% else %}
         <td class="num">{{ row.mean_score }}</td>
+        <td class="num">{{ row.se if row.se is defined else "—" }}</td>
+        <td class="num">{% if row.ci_lower is defined %}{{ row.ci_lower }}–{{ row.ci_upper }}{% else %}—{% endif %}</td>
         {% endif %}
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  <footer>lsa-platform · aggregates only · see the repository README for the honest framing</footer>
+
+  <h2>Proficiency bands by canton
+    <a class="apilink" href="/api/results/proficiency-levels">api</a></h2>
+  <p class="hint">Weighted share of students scoring below 450 (red),
+    450–549 (blue), and 550 or above (green).</p>
+  <table>
+    <thead><tr><th>Canton</th><th>Distribution</th>
+      <th class="num">&lt;450</th><th class="num">450–549</th><th class="num">≥550</th></tr></thead>
+    <tbody>
+      {% for lv in levels %}
+      <tr>
+        <td>{{ lv.canton }}</td>
+        {% if lv.pct_below is none %}
+        <td class="suppressed" colspan="4">suppressed</td>
+        {% else %}
+        <td><div class="band">
+          <div class="b-low" style="width: {{ lv.pct_below }}%"></div>
+          <div class="b-mid" style="width: {{ lv.pct_middle }}%"></div>
+          <div class="b-high" style="width: {{ lv.pct_above }}%"></div>
+        </div></td>
+        <td class="num">{{ lv.pct_below }}%</td>
+        <td class="num">{{ lv.pct_middle }}%</td>
+        <td class="num">{{ lv.pct_above }}%</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Group comparisons</h2>
+  <table>
+    <thead><tr><th>Language region
+      <a class="apilink" href="/api/results/language-regions">api</a></th>
+      <th class="num">Students</th><th class="num">Mean score</th></tr></thead>
+    <tbody>
+      {% for r in regions %}
+      <tr><td>{{ r.language_region }}</td><td class="num">{{ r.n_students }}</td>
+        <td class="num">{% if r.mean_score is none %}<span class="suppressed">suppressed</span>{% else %}{{ r.mean_score }}{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <table>
+    <thead><tr><th>Sex × region
+      <a class="apilink" href="/api/results/by-sex">api</a></th>
+      <th class="num">Students</th><th class="num">Mean score</th></tr></thead>
+    <tbody>
+      {% for r in by_sex %}
+      <tr><td>{{ "girls" if r.sex == "f" else "boys" }} · {{ r.language_region }}</td>
+        <td class="num">{{ r.n_students }}</td>
+        <td class="num">{% if r.mean_score is none %}<span class="suppressed">suppressed</span>{% else %}{{ r.mean_score }}{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Participation by canton
+    <a class="apilink" href="/api/results/response-rates">api</a></h2>
+  <table>
+    <thead><tr><th>Canton</th><th class="num">Sampled</th><th class="num">Responded</th>
+      <th class="num">Rate</th><th class="num">Rank in region</th><th class="num">vs national</th></tr></thead>
+    <tbody>
+      {% for rr in response_rates %}
+      <tr><td>{{ rr.canton }}</td><td class="num">{{ rr.n_sampled }}</td>
+        <td class="num">{{ rr.n_responded }}</td>
+        <td class="num">{{ (rr.response_rate * 100)|round(1) }}%</td>
+        <td class="num">{{ rr.rank_in_region }}</td>
+        <td class="num">{{ '%+.1f'|format(rr.diff_from_national * 100) }} pp</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Item statistics
+    <a class="apilink" href="/api/results/items">api</a></h2>
+  <p class="hint">Facility = share of correct answers per test item
+    (aggregates over items, not persons). Low facility = hard item.</p>
+  <table>
+    <thead><tr><th>Item</th><th>Domain</th><th class="num">Responses</th>
+      <th class="num">Facility</th><th class="num">Weighted facility</th></tr></thead>
+    <tbody>
+      {% for it in items %}
+      <tr><td>{{ it.item_id }}</td><td>{{ it.domain }}</td>
+        <td class="num">{{ it.n_responses }}</td>
+        <td class="num">{{ it.facility }}</td>
+        <td class="num">{{ it.weighted_facility }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <footer>lsa-platform · aggregates only · full API documentation at
+    <a href="/docs">/docs</a> · see the repository README for the honest framing</footer>
 </body>
 </html>

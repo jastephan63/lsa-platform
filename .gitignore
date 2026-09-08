@@ -38,3 +38,4 @@ crash.log
 # OS / editor noise
 .DS_Store
 *.log
+lsa-platform/

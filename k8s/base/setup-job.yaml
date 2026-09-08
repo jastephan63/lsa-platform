@@ -1,6 +1,7 @@
 # One ordered setup Job replaces compose's depends_on chain:
 #   init 1: wait for postgres  →  init 2: migrate + roles  →
-#   init 3: generate data      →  main: validate + ingest
+#   init 3: generate data      →  init 4: validate + ingest  →
+#   main: R analysis publishes inference for the API
 # Init containers run strictly in sequence; the emptyDir volume carries the
 # generated CSVs from the datagen step to the ingest step.
 apiVersion: batch/v1
@@ -79,7 +80,6 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
-      containers:
         - name: ingest
           image: lsa-api:local
           securityContext: *restricted
@@ -90,6 +90,48 @@ spec:
             - name: data
               mountPath: /data
           resources: *small
+      containers:
+        # Runs as the analyst role: computes estimates with SEs/CIs and
+        # publishes them into analysis_result for the API to serve.
+        - name: publish
+          image: lsa-analysis:local
+          securityContext: *restricted
+          env:
+            - name: POSTGRES_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: lsa-config
+                  key: POSTGRES_HOST
+            - name: POSTGRES_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: lsa-config
+                  key: POSTGRES_PORT
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: lsa-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: lsa-db-credentials
+                  key: LSA_ANALYST_DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lsa-db-credentials
+                  key: LSA_ANALYST_DB_PASSWORD
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
       volumes:
         - name: data
           emptyDir: {}

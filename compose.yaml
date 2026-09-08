@@ -74,10 +74,32 @@ services:
     entrypoint: ["lsa-ingest", "load", "--data-dir", "/data/raw",
                  "--report-dir", "/data/reports", "--strict"]
 
+  # One-shot: the R analysis publishes estimates with SEs/CIs into
+  # analysis_result (as the analyst role), so the API can serve them.
+  publish:
+    build:
+      context: .
+      dockerfile: docker/analysis.Dockerfile
+    depends_on:
+      ingest:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${LSA_ANALYST_DB_USER}
+      POSTGRES_PASSWORD: ${LSA_ANALYST_DB_PASSWORD}
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
   api:
     build: *apibuild
     depends_on:
-      ingest:
+      publish:
         condition: service_completed_successfully
     environment:
       POSTGRES_HOST: db

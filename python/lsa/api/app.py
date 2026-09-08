@@ -88,16 +88,23 @@ async def request_context(
     return response
 
 
-def guard_cells(rows: list[dict[str, Any]], n_col: str = "n_students") -> list[dict[str, Any]]:
+def guard_cells(
+    rows: list[dict[str, Any]],
+    n_col: str = "n_students",
+    value_cols: tuple[str, ...] = ("mean_score",),
+) -> list[dict[str, Any]]:
     """Defence in depth: the views suppress small cells; if a value ever
     arrives for a small cell anyway, blank it here and log loudly."""
     for row in rows:
-        if row[n_col] < MIN_CELL_SIZE and row.get("mean_score") is not None:
+        if row[n_col] < MIN_CELL_SIZE and any(
+            row.get(col) is not None for col in value_cols
+        ):
             logger.error(
                 "suppression guard triggered",
                 extra={"extra_fields": {"row_n": row[n_col]}},
             )
-            row["mean_score"] = None
+            for col in value_cols:
+                row[col] = None
     return rows
 
 
@@ -126,6 +133,11 @@ def query_view(request: Request, view: str, order_by: str) -> list[dict[str, Any
         "language_region_competency",
         "canton_response_rate",
         "canton_ses_competency",
+        "item_stats",
+        "proficiency_levels",
+        "sex_competency",
+        "national_summary",
+        "analysis_result",
     }
     if view not in allowed:  # pragma: no cover - programming error, not input
         raise ValueError(f"view {view} is not published")
@@ -194,6 +206,46 @@ def response_rates(request: Request) -> list[dict[str, Any]]:
     return query_view(request, "canton_response_rate", "canton")
 
 
+@app.get("/api/results/national")
+def national(request: Request) -> dict[str, Any]:
+    """One-row national overview: sample sizes, response rate, mean score."""
+    rows = query_view(request, "national_summary", "n_schools")
+    return rows[0] if rows else {}
+
+
+@app.get("/api/results/uncertainty")
+def uncertainty(request: Request) -> list[dict[str, Any]]:
+    """The statistician's table: design-based estimates with standard errors
+    and 95% confidence intervals (jackknife + Rubin), published into the
+    database by the R analysis job. Empty until that job has run."""
+    rows = query_view(request, "analysis_result", "group_id")
+    return guard_cells(
+        rows, n_col="n", value_cols=("estimate", "se", "ci_lower", "ci_upper")
+    )
+
+
+@app.get("/api/results/proficiency-levels")
+def proficiency(request: Request) -> list[dict[str, Any]]:
+    """Weighted share of students per proficiency band, by canton."""
+    return guard_cells(
+        query_view(request, "proficiency_levels", "canton"),
+        value_cols=("pct_below", "pct_middle", "pct_above"),
+    )
+
+
+@app.get("/api/results/by-sex")
+def by_sex(request: Request) -> list[dict[str, Any]]:
+    """Weighted means by sex and language region."""
+    return guard_cells(query_view(request, "sex_competency", "language_region"))
+
+
+@app.get("/api/results/items")
+def items(request: Request) -> list[dict[str, Any]]:
+    """Classical item analysis: facility per test item (aggregates over
+    items, not persons)."""
+    return query_view(request, "item_stats", "item_id")
+
+
 @app.get("/api/restricted/cantons-by-ses")
 def canton_ses_results(request: Request) -> list[dict[str, Any]]:
     """Canton x SES-quintile means. Authenticated tier: finer cells, same
@@ -202,17 +254,56 @@ def canton_ses_results(request: Request) -> list[dict[str, Any]]:
     return guard_cells(query_view(request, "canton_ses_competency", "canton"))
 
 
+def _scale_pct(score: float) -> float:
+    """Map a reporting-scale score onto the fixed 400-600 chart window."""
+    return round(max(0.0, min(1.0, (score - 400.0) / 200.0)) * 100, 1)
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request) -> Response:
-    """Minimal server-rendered results page with an inline SVG chart."""
+    """Server-rendered results page: national overview, canton chart with
+    confidence-interval whiskers (once the R job has published), proficiency
+    bands, group comparisons, response rates, and item statistics."""
     rows = guard_cells(query_view(request, "canton_competency", "canton"))
-    # Bar geometry is computed here, not in the template: scores map onto a
+    national_rows = query_view(request, "national_summary", "n_schools")
+    uncertainty_rows = guard_cells(
+        query_view(request, "analysis_result", "group_id"),
+        n_col="n",
+        value_cols=("estimate", "se", "ci_lower", "ci_upper"),
+    )
+    inference = {
+        r["group_id"]: r for r in uncertainty_rows if r["group_type"] == "canton"
+    }
+    # Geometry is computed here, not in the template: scores map onto a
     # fixed 400-600 reporting-scale window so bars stay comparable across
     # datasets, and the template stays free of arithmetic.
     for row in rows:
         if row["mean_score"] is not None:
-            fraction = (float(row["mean_score"]) - 400.0) / 200.0
-            row["bar_pct"] = round(max(0.0, min(1.0, fraction)) * 100, 1)
+            row["bar_pct"] = _scale_pct(float(row["mean_score"]))
+        inf = inference.get(row["canton"])
+        if inf and inf["se"] is not None:
+            row["se"] = inf["se"]
+            row["ci_lower"] = inf["ci_lower"]
+            row["ci_upper"] = inf["ci_upper"]
+            row["ci_lo_pct"] = _scale_pct(float(inf["ci_lower"]))
+            row["ci_hi_pct"] = _scale_pct(float(inf["ci_upper"]))
     return templates.TemplateResponse(
-        request, "index.html", {"rows": rows, "min_cell_size": MIN_CELL_SIZE}
+        request,
+        "index.html",
+        {
+            "rows": rows,
+            "national": national_rows[0] if national_rows else None,
+            "has_inference": bool(inference),
+            "regions": guard_cells(
+                query_view(request, "language_region_competency", "language_region")
+            ),
+            "levels": guard_cells(
+                query_view(request, "proficiency_levels", "canton"),
+                value_cols=("pct_below", "pct_middle", "pct_above"),
+            ),
+            "by_sex": guard_cells(query_view(request, "sex_competency", "language_region")),
+            "response_rates": query_view(request, "canton_response_rate", "canton"),
+            "items": query_view(request, "item_stats", "item_id"),
+            "min_cell_size": MIN_CELL_SIZE,
+        },
     )

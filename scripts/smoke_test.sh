@@ -85,6 +85,21 @@ body="$(curl -fsS "$base_url/")"
 grep -qi "synthetic" <<<"$body" || fail "html page missing the synthetic-data disclaimer"
 ok "html page renders with disclaimer"
 
+body="$(curl -fsS "$base_url/api/results/national")"
+grep -q '"n_participants"' <<<"$body" || fail "national summary missing"
+ok "national summary endpoint"
+
+# The R job publishes inference during stack setup; the API must serve it.
+body="$(curl -fsS "$base_url/api/results/uncertainty")"
+n_se="$(grep -o '"se"' <<<"$body" | wc -l | tr -d ' ')"
+[ "$n_se" -ge 26 ] || fail "expected >=26 uncertainty rows (26 cantons + regions), got $n_se"
+ok "published inference (SE/CI) served by the API"
+
+body="$(curl -fsS "$base_url/api/results/items")"
+n_items="$(grep -o '"item_id"' <<<"$body" | wc -l | tr -d ' ')"
+[ "$n_items" -eq 30 ] || fail "expected 30 item rows, got $n_items"
+ok "item statistics endpoint"
+
 # Restricted tier: never readable without a token; fully served with one.
 status="$(curl -s -o /dev/null -w '%{http_code}' "$base_url/api/restricted/cantons-by-ses")"
 [ "$status" = "401" ] || [ "$status" = "503" ] || fail "restricted tier answered $status without a token"
