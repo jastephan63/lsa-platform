@@ -65,8 +65,14 @@ make smoke
 
 Line by line: clone, enter the directory, copy the env template (then set
 your own local passwords in `.env`), start the full stack (db → migrate →
-generate → ingest → api), and run 7 end-to-end checks against
-http://localhost:8000. Safe to paste as a block, and safe to re-run — on a
+generate → ingest → api, plus Prometheus and Grafana), and run the
+end-to-end checks. Afterwards three things are serving:
+
+| URL | What |
+| --- | ---- |
+| http://localhost:8000 | results page and aggregate API |
+| http://localhost:3000 | Grafana with the provisioned "lsa-platform API" dashboard |
+| http://localhost:9090 | Prometheus (scraping the API's `/metrics`) | Safe to paste as a block, and safe to re-run — on a
 second run the clone step just reports the directory exists and the rest
 proceeds. Requires a running Docker daemon (`make up` says so if not). No
 inline comments in the code block — macOS's default zsh would treat them as

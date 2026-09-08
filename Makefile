@@ -54,7 +54,11 @@ up: ## Build and start the whole stack locally (needs .env, see .env.example)
 	@test -f .env || { \
 	  echo "No .env file. Run: cp .env.example .env  (then adjust the passwords)"; exit 1; }
 	docker compose up -d --build
-	@echo "API on http://localhost:8000 once the one-shot jobs finish (watch: docker compose ps)"
+	@echo ""
+	@echo "Once the one-shot jobs finish (watch: docker compose ps):"
+	@echo "  results + API   http://localhost:8000"
+	@echo "  Grafana         http://localhost:3000   (dashboard: lsa-platform API)"
+	@echo "  Prometheus      http://localhost:9090"
 
 down: ## Stop the stack (keep data volumes)
 	docker compose down
