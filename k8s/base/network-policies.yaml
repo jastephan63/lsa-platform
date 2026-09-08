@@ -66,6 +66,9 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: lsa-setup
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: lsa-backup
       ports:
         - protocol: TCP
           port: 5432
@@ -79,7 +82,7 @@ spec:
     matchExpressions:
       - key: app.kubernetes.io/name
         operator: In
-        values: [lsa-api, lsa-setup]
+        values: [lsa-api, lsa-setup, lsa-backup]
   policyTypes: [Egress]
   egress:
     - to:

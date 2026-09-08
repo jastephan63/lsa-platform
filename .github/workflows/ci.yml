@@ -188,6 +188,55 @@ jobs:
           test "$(check "SELECT has_table_privilege('lsa_analyst','student','SELECT')")" = "t"
           test "$(check "SELECT has_table_privilege('lsa_analyst','api_audit_log','SELECT')")" = "f"
 
+  backup-restore:
+    name: backup + restore drill
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lsa
+          POSTGRES_USER: lsa_admin
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U lsa_admin -d lsa"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: lsa
+      POSTGRES_USER: lsa_admin
+      POSTGRES_PASSWORD: ci-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - name: Populate the database
+        run: |
+          Rscript r/datagen/generate.R --out data/raw
+          ./scripts/migrate.sh
+          pip install ./python
+          lsa-ingest load --data-dir data/raw --report-dir data/reports --strict
+      - name: Backup, destroy, restore — and prove nothing was lost
+        run: |
+          q() { PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U lsa_admin -d lsa --no-psqlrc -tA -c "$1"; }
+          before="$(q 'SELECT count(*) FROM student')/$(q 'SELECT count(*) FROM response')/$(q 'SELECT count(*) FROM replicate_weight')"
+          ./scripts/db_backup.sh --out-dir /tmp/drill
+          q 'DELETE FROM replicate_weight; DELETE FROM replicate; DELETE FROM plausible_value;
+             DELETE FROM response; DELETE FROM student; DELETE FROM item; DELETE FROM school;'
+          test "$(q 'SELECT count(*) FROM student')" = "0"
+          ./scripts/db_restore.sh --yes /tmp/drill/lsa-*.dump
+          after="$(q 'SELECT count(*) FROM student')/$(q 'SELECT count(*) FROM response')/$(q 'SELECT count(*) FROM replicate_weight')"
+          echo "before=$before after=$after"
+          test "$before" = "$after"
+          # The analytical views must work on the restored database.
+          test "$(q 'SELECT count(*) FROM canton_competency')" = "26"
+
   terraform:
     name: terraform fmt + validate + tflint + docs
     runs-on: ubuntu-latest

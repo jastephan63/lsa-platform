@@ -14,6 +14,7 @@ resources:
   - postgres.yaml
   - api.yaml
   - setup-job.yaml
+  - backup-cronjob.yaml
   - ingress.yaml
   - network-policies.yaml
   - pdb.yaml
@@ -26,6 +27,9 @@ configMapGenerator:
       - POSTGRES_DB=lsa
       - LSA_MIN_CELL_SIZE="10"
       - LSA_LOG_LEVEL=INFO
+  # NOTE: kustomize configMapGenerator cannot glob — every new migration
+  # must be added here, or the cluster silently runs an old schema (the
+  # e2e job catches exactly that).
   - name: lsa-migrations
     files:
       - ../../db/migrations/0001_schema.sql
@@ -33,6 +37,7 @@ configMapGenerator:
       - ../../db/migrations/0003_roles.sql
       - ../../db/migrations/0004_audit.sql
       - ../../db/migrations/0005_analyst_role.sql
+      - ../../db/migrations/0006_replicates.sql
   - name: lsa-scripts
     files:
       - ../../scripts/migrate.sh
