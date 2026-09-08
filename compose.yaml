@@ -1,0 +1,125 @@
+# The whole platform, locally, with one command:
+#
+#   cp .env.example .env   # once; adjust the passwords
+#   docker compose up --build
+#
+# Startup order: db → migrate/bootstrap → datagen → ingest → api.
+# The one-shot jobs exit 0 and stay exited; `api` then serves on :8000.
+# `docker compose run analysis` runs the R batch job on demand.
+
+name: lsa-platform
+
+services:
+  db:
+    image: postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?copy .env.example to .env first}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"  # convenience for local psql; not exposed beyond localhost
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  # One-shot: migrations + role logins. Runs from the postgres image because
+  # that already carries bash and a version-matched psql.
+  bootstrap:
+    image: postgres:16@sha256:f1c3376c26f2609ab9f29f71f824103fe2fcd8ee0346485cb6122a4f93df6f94
+    depends_on:
+      db:
+        condition: service_healthy
+    environment: &dbenv
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      LSA_API_DB_USER: ${LSA_API_DB_USER}
+      LSA_API_DB_PASSWORD: ${LSA_API_DB_PASSWORD}
+      LSA_ANALYST_DB_USER: ${LSA_ANALYST_DB_USER}
+      LSA_ANALYST_DB_PASSWORD: ${LSA_ANALYST_DB_PASSWORD}
+    volumes:
+      - ./db:/repo/db:ro
+      - ./scripts:/repo/scripts:ro
+    entrypoint: ["/repo/scripts/bootstrap.sh", "--skip-data"]
+
+  # One-shot: generate the synthetic dataset into the shared ./data mount.
+  datagen:
+    build:
+      context: .
+      dockerfile: docker/analysis.Dockerfile
+    volumes:
+      - ./r/datagen:/repo/datagen:ro
+      - assessdata:/data
+    entrypoint: ["Rscript", "/repo/datagen/generate.R", "--out", "/data/raw"]
+
+  # One-shot: validate and load. Strict: any rejected record fails the stack.
+  ingest:
+    build: &apibuild
+      context: .
+      dockerfile: docker/api.Dockerfile
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      datagen:
+        condition: service_completed_successfully
+    environment: *dbenv
+    volumes:
+      - assessdata:/data
+    entrypoint: ["lsa-ingest", "load", "--data-dir", "/data/raw",
+                 "--report-dir", "/data/reports", "--strict"]
+
+  api:
+    build: *apibuild
+    depends_on:
+      ingest:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      LSA_API_DB_USER: ${LSA_API_DB_USER}
+      LSA_API_DB_PASSWORD: ${LSA_API_DB_PASSWORD}
+      LSA_MIN_CELL_SIZE: ${LSA_MIN_CELL_SIZE:-10}
+      LSA_LOG_LEVEL: ${LSA_LOG_LEVEL:-INFO}
+    ports:
+      - "8000:8000"
+    # The runtime filesystem is read-only; the process needs no capabilities.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  # On demand (`docker compose run --rm analysis`): the R batch job, reading
+  # as the analyst role and printing the suppressed publishable table.
+  analysis:
+    build:
+      context: .
+      dockerfile: docker/analysis.Dockerfile
+    profiles: [analysis]
+    depends_on:
+      ingest:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${LSA_ANALYST_DB_USER}
+      POSTGRES_PASSWORD: ${LSA_ANALYST_DB_PASSWORD}
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  pgdata:
+  assessdata:

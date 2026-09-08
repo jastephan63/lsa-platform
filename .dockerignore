@@ -1,0 +1,15 @@
+# Keep build contexts small and secrets structurally impossible to bake in.
+.git
+.env
+data/
+backups/
+python/.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+*.Rcheck
+*.tar.gz
+k8s/
+infra/
+docs/

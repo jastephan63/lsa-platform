@@ -41,17 +41,25 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # The migration creates the role NOLOGIN and without credentials, so no
 # secret lives in a versioned file; the password is attached here, from the
 # environment. psql -v quoting keeps the password out of the SQL text.
-# Variable interpolation only happens for script input, not --command,
-# hence the heredoc.
-PGOPTIONS='-c client_min_messages=warning' PGPASSWORD="$POSTGRES_PASSWORD" psql \
-  --host "$POSTGRES_HOST" --port "$POSTGRES_PORT" \
-  --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
-  --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
-  --set api_user="$LSA_API_DB_USER" --set api_password="$LSA_API_DB_PASSWORD" \
-  <<'EOF'
-ALTER ROLE :"api_user" WITH LOGIN PASSWORD :'api_password';
+# Attach credentials to the NOLOGIN roles created by migrations. Variable
+# interpolation only happens for script input, not --command, hence heredocs.
+grant_login() {
+  local role="$1" password="$2"
+  PGOPTIONS='-c client_min_messages=warning' PGPASSWORD="$POSTGRES_PASSWORD" psql \
+    --host "$POSTGRES_HOST" --port "$POSTGRES_PORT" \
+    --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+    --no-psqlrc --quiet --set ON_ERROR_STOP=1 \
+    --set role="$role" --set password="$password" \
+    <<'EOF'
+ALTER ROLE :"role" WITH LOGIN PASSWORD :'password';
 EOF
-echo "api role '$LSA_API_DB_USER' can log in"
+  echo "role '$role' can log in"
+}
+
+grant_login "$LSA_API_DB_USER" "$LSA_API_DB_PASSWORD"
+if [ -n "${LSA_ANALYST_DB_USER:-}" ]; then
+  grant_login "$LSA_ANALYST_DB_USER" "${LSA_ANALYST_DB_PASSWORD:?set LSA_ANALYST_DB_PASSWORD}"
+fi
 
 if ! "$skip_data"; then
   if [ ! -f "$repo_root/data/raw/students.csv" ]; then

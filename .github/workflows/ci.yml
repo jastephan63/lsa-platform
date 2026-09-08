@@ -172,14 +172,21 @@ jobs:
             PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U lsa_admin -d lsa \
               --no-psqlrc -tA -c "$1"
           }
+          # 5 domain tables + schema_migrations + api_audit_log
           test "$(check "SELECT count(*) FROM information_schema.tables
-                         WHERE table_schema='public' AND table_type='BASE TABLE'")" = "6"
+                         WHERE table_schema='public' AND table_type='BASE TABLE'")" = "7"
           test "$(check "SELECT count(*) FROM information_schema.views
                          WHERE table_schema='public'")" = "4"
-          test "$(check "SELECT count(*) FROM pg_roles WHERE rolname='lsa_api'")" = "1"
-          # The API role must NOT be able to read base tables (least privilege).
+          test "$(check "SELECT count(*) FROM pg_roles
+                         WHERE rolname IN ('lsa_api','lsa_analyst')")" = "2"
+          # Privilege split: the API role must NOT read base tables; the
+          # analyst role may read them; neither reads the audit trail.
           test "$(check "SELECT has_table_privilege('lsa_api','student','SELECT')")" = "f"
           test "$(check "SELECT has_table_privilege('lsa_api','canton_competency','SELECT')")" = "t"
+          test "$(check "SELECT has_table_privilege('lsa_api','api_audit_log','INSERT')")" = "t"
+          test "$(check "SELECT has_table_privilege('lsa_api','api_audit_log','SELECT')")" = "f"
+          test "$(check "SELECT has_table_privilege('lsa_analyst','student','SELECT')")" = "t"
+          test "$(check "SELECT has_table_privilege('lsa_analyst','api_audit_log','SELECT')")" = "f"
 
   shell:
     name: shellcheck all scripts
