@@ -7,7 +7,7 @@ SHELL := /bin/bash
 
 SEED ?= 20260908
 
-.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r bootstrap backup smoke lint-shell up down analysis reset kind-up kind-down validate-tf validate-k8s
+.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r bootstrap backup smoke lint-shell up down analysis reset kind-up kind-down gitops-up data-large validate-tf validate-k8s
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -91,3 +91,6 @@ hooks: ## Install the git pre-commit hooks
 
 lint: ## Run all pre-commit checks against the whole tree
 	pre-commit run --all-files
+
+gitops-up: ## Install Argo CD in the kind cluster; the cluster then follows git
+	./scripts/gitops-up.sh

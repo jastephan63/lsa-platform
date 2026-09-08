@@ -47,6 +47,11 @@ Two design points I'd call out:
 - **Least privilege is tested, not asserted**: a test connects with the
   API's own database credentials and expects `InsufficientPrivilege` when
   it tries to read student-level data.
+- **Uncertainty is design-based**: jackknife replicate weights (grouped
+  into variance zones) combined with Rubin's rules across plausible values
+  give every published mean a standard error and confidence interval; a
+  hand-computable test pins the estimator down. Finer aggregates sit behind
+  an authenticated, audited API tier with the same suppression rule.
 
 ## Quick start
 
@@ -89,7 +94,8 @@ Kubernetes instead (needs kind + kubectl + kustomize):
 | [docker/](docker), [compose.yaml](compose.yaml) | Hardened images and the local stack |
 | [k8s/](k8s) | Kustomize base + dev/prod overlays |
 | [infra/](infra) | Terraform module for OpenStack ([module README](infra/README.md)) |
-| [docs/](docs) | [security](docs/security.md) · [datenschutz](docs/datenschutz.md) (German) · [network](docs/network.md) · [ADRs](docs/adr) |
+| [observability/](observability) | Prometheus config and the provisioned Grafana dashboard |
+| [docs/](docs) | [security](docs/security.md) · [datenschutz](docs/datenschutz.md) (German) · [network](docs/network.md) · [performance](docs/performance.md) · [ADRs](docs/adr) |
 
 ## Notes from building it
 
