@@ -24,13 +24,18 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push
+      # Multi-arch: amd64 for CI/servers, arm64 for Apple-Silicon laptops.
+      # The arm64 half of the R image compiles under QEMU emulation, which is
+      # slow — acceptable in a tag-triggered release, wrong for every push.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and push (linux/amd64, linux/arm64)
         run: |
           ref="ghcr.io/${{ github.repository }}-${{ matrix.image }}"
-          docker build -f docker/${{ matrix.image }}.Dockerfile \
-            -t "$ref:${{ github.ref_name }}" -t "$ref:latest" .
-          docker push "$ref:${{ github.ref_name }}"
-          docker push "$ref:latest"
+          docker buildx build -f docker/${{ matrix.image }}.Dockerfile \
+            --platform linux/amd64,linux/arm64 \
+            -t "$ref:${{ github.ref_name }}" -t "$ref:latest" \
+            --push .
       - name: SBOM for the released image
         uses: anchore/sbom-action@v0
         with:
