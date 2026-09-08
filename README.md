@@ -50,16 +50,21 @@ and a **CI pipeline** where every claim in this README is a required job.
 ## Quick start
 
 ```bash
-git clone https://github.com/jastephan63/lsa-platform && cd lsa-platform
+git clone https://github.com/jastephan63/lsa-platform
+cd lsa-platform
 cp .env.example .env
 make up
 make smoke
 ```
 
-Line by line: copy the env template (then set your own local passwords in
-`.env`), start the full stack (db → migrate → generate → ingest → api), and
-run 7 end-to-end checks against http://localhost:8000. No inline comments in
-the code block — macOS's default zsh would treat them as arguments.
+Line by line: clone, enter the directory, copy the env template (then set
+your own local passwords in `.env`), start the full stack (db → migrate →
+generate → ingest → api), and run 7 end-to-end checks against
+http://localhost:8000. Safe to paste as a block, and safe to re-run — on a
+second run the clone step just reports the directory exists and the rest
+proceeds. Requires a running Docker daemon (`make up` says so if not). No
+inline comments in the code block — macOS's default zsh would treat them as
+arguments.
 
 Kubernetes instead (needs kind + kubectl + kustomize):
 `set -a; . ./.env; set +a; make kind-up` — then `make smoke BASE_URL=http://localhost:8080`.

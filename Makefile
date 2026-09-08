@@ -46,8 +46,12 @@ lint-shell: ## Shellcheck all operations scripts
 	shellcheck scripts/*.sh
 
 up: ## Build and start the whole stack locally (needs .env, see .env.example)
+	@docker info >/dev/null 2>&1 || { \
+	  echo "Docker daemon is not running. Start Docker Desktop (or: colima start) and retry."; exit 1; }
+	@test -f .env || { \
+	  echo "No .env file. Run: cp .env.example .env  (then adjust the passwords)"; exit 1; }
 	docker compose up -d --build
-	@echo "API on http://localhost:8000 once the one-shot jobs finish"
+	@echo "API on http://localhost:8000 once the one-shot jobs finish (watch: docker compose ps)"
 
 down: ## Stop the stack (keep data volumes)
 	docker compose down
