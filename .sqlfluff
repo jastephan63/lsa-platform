@@ -1,0 +1,17 @@
+[sqlfluff]
+dialect = postgres
+templater = raw
+max_line_length = 100
+# LT12 (files end with newline) is covered by pre-commit's end-of-file-fixer.
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = upper
+
+[sqlfluff:rules:capitalisation.identifiers]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:references.keywords]
+ignore_words = domain

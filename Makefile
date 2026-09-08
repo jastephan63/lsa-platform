@@ -7,13 +7,19 @@ SHELL := /bin/bash
 
 SEED ?= 20260908
 
-.PHONY: help hooks lint data
+.PHONY: help hooks lint data migrate lint-sql
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 data: ## Generate the synthetic dataset into data/raw (SEED=... to override)
 	Rscript r/datagen/generate.R --seed $(SEED) --out data/raw
+
+migrate: ## Apply pending database migrations (connection from environment/.env)
+	./scripts/migrate.sh
+
+lint-sql: ## Lint all SQL with sqlfluff
+	sqlfluff lint db/
 
 hooks: ## Install the git pre-commit hooks
 	pre-commit install

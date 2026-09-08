@@ -40,6 +40,57 @@ jobs:
           test "$(tail -n +2 /tmp/run-a/schools.csv | wc -l)" -gt 50
           test "$(tail -n +2 /tmp/run-a/students.csv | wc -l)" -gt 1000
 
+  sql:
+    name: SQL lint + migration test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lsa
+          POSTGRES_USER: lsa_admin
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U lsa_admin -d lsa"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: lsa
+      POSTGRES_USER: lsa_admin
+      POSTGRES_PASSWORD: ci-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Lint SQL
+        run: |
+          pip install sqlfluff
+          sqlfluff lint db/
+      - name: Apply all migrations to an empty database
+        run: ./scripts/migrate.sh
+      - name: Re-run to prove idempotence
+        run: |
+          out="$(./scripts/migrate.sh)"
+          echo "$out"
+          grep -q "up to date" <<<"$out"
+      - name: Assert resulting schema
+        run: |
+          check() {
+            PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U lsa_admin -d lsa \
+              --no-psqlrc -tA -c "$1"
+          }
+          test "$(check "SELECT count(*) FROM information_schema.tables
+                         WHERE table_schema='public' AND table_type='BASE TABLE'")" = "6"
+          test "$(check "SELECT count(*) FROM information_schema.views
+                         WHERE table_schema='public'")" = "4"
+          test "$(check "SELECT count(*) FROM pg_roles WHERE rolname='lsa_api'")" = "1"
+          # The API role must NOT be able to read base tables (least privilege).
+          test "$(check "SELECT has_table_privilege('lsa_api','student','SELECT')")" = "f"
+          test "$(check "SELECT has_table_privilege('lsa_api','canton_competency','SELECT')")" = "t"
+
   hygiene:
     name: pre-commit hygiene
     runs-on: ubuntu-latest
