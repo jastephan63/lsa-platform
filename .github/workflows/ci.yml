@@ -188,6 +188,31 @@ jobs:
           test "$(check "SELECT has_table_privilege('lsa_analyst','student','SELECT')")" = "t"
           test "$(check "SELECT has_table_privilege('lsa_analyst','api_audit_log','SELECT')")" = "f"
 
+  containers:
+    name: Build images, scan (Trivy), SBOM (Syft)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [api, analysis]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ${{ matrix.image }} image
+        run: docker build -f docker/${{ matrix.image }}.Dockerfile -t lsa-${{ matrix.image }}:ci .
+      - name: Trivy vulnerability scan (fails on fixable HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: lsa-${{ matrix.image }}:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: lsa-${{ matrix.image }}:ci
+          format: spdx-json
+          artifact-name: sbom-${{ matrix.image }}.spdx.json
+
   shell:
     name: shellcheck all scripts
     runs-on: ubuntu-latest

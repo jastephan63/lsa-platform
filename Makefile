@@ -7,7 +7,7 @@ SHELL := /bin/bash
 
 SEED ?= 20260908
 
-.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r bootstrap backup smoke lint-shell
+.PHONY: help hooks lint data migrate lint-sql install-py lint-py test-py ingest check-r bootstrap backup smoke lint-shell up down analysis
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -44,6 +44,16 @@ smoke: ## Run the smoke-test suite against a running API (BASE_URL=... to overri
 
 lint-shell: ## Shellcheck all operations scripts
 	shellcheck scripts/*.sh
+
+up: ## Build and start the whole stack locally (needs .env, see .env.example)
+	docker compose up -d --build
+	@echo "API on http://localhost:8000 once the one-shot jobs finish"
+
+down: ## Stop the stack (keep data volumes)
+	docker compose down
+
+analysis: ## Run the R analysis batch job against the running stack
+	docker compose run --rm analysis
 
 check-r: ## R CMD check the lsar analysis package
 	cd r/lsar && Rscript -e 'roxygen2::roxygenise()'
