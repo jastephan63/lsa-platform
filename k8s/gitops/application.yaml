@@ -1,0 +1,31 @@
+# Argo CD Application: the pull-based alternative to `make kind-up`'s
+# kubectl apply. Argo watches the repository's main branch and keeps the
+# cluster converged on k8s/overlays/dev — drift shows up in `argocd app
+# diff` / the UI instead of going unnoticed.
+#
+# Notes:
+# - kustomize.buildOptions (the load restrictor) is set in argocd-cm by
+#   scripts/gitops-up.sh, because it is server-side Argo configuration.
+# - Replace=true because the lsa-setup Job is immutable by design; a synced
+#   change to migrations or scripts legitimately means "run the job again".
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lsa-platform
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/jastephan63/lsa-platform
+    targetRevision: main
+    path: k8s/overlays/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lsa
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - Replace=true
+      - CreateNamespace=true
