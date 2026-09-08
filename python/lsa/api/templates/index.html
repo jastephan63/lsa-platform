@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>lsa-platform — results</title>
+  <style>
+    html { background: #fff; }
+    body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 46rem;
+           padding: 0 1rem; color: #1a1a1a; background: #fff; }
+    .notice { background: #fff3cd; border: 1px solid #e0c869; padding: .6rem 1rem;
+              border-radius: 6px; font-size: .9rem; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1.5rem; }
+    th, td { text-align: left; padding: .4rem .8rem; border-bottom: 1px solid #ddd; }
+    th { border-bottom: 2px solid #999; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .suppressed { color: #888; font-style: italic; }
+    footer { margin-top: 2rem; font-size: .8rem; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>Fictional competency assessment — results</h1>
+  <p class="notice">
+    Demonstration project with <strong>synthetic data</strong>. No real
+    students, schools, or results. Cells with fewer than
+    {{ min_cell_size }} students are suppressed.
+  </p>
+  <table>
+    <thead>
+      <tr><th>Canton</th><th>Language region</th>
+          <th style="text-align:right">Students (unweighted)</th>
+          <th style="text-align:right">Weighted mean score</th></tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.canton }}</td>
+        <td>{{ row.language_region }}</td>
+        <td class="num">{{ row.n_students }}</td>
+        {% if row.mean_score is none %}
+        <td class="num suppressed">suppressed</td>
+        {% else %}
+        <td class="num">{{ row.mean_score }}</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <footer>lsa-platform · aggregates only · see the repository README for the honest framing</footer>
+</body>
+</html>
