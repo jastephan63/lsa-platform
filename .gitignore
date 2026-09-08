@@ -1,0 +1,40 @@
+# Secrets and local configuration — never commit these
+.env
+*.pem
+*.key
+
+# Generated synthetic data (reproducible via `make data`, see r/datagen)
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rcheck/
+*.tar.gz
+
+# Terraform (the lock file IS committed; state and providers are not)
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+
+# OS / editor noise
+.DS_Store
+*.log
