@@ -20,4 +20,4 @@ $$;
 GRANT USAGE ON SCHEMA public TO lsa_analyst;
 GRANT SELECT ON school, student, item, response, plausible_value TO lsa_analyst;
 GRANT SELECT ON canton_competency, language_region_competency,
-    canton_response_rate TO lsa_analyst;
+canton_response_rate TO lsa_analyst;
