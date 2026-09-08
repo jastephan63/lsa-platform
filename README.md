@@ -53,7 +53,27 @@ Two design points I'd call out:
   hand-computable test pins the estimator down. Finer aggregates sit behind
   an authenticated, audited API tier with the same suppression rule.
 
-## Quick start
+## Running it — the complete tour
+
+Every command below is safe to paste as a block and safe to re-run. None of
+the code blocks contain inline comments, because macOS's default zsh would
+treat them as arguments. `make help` lists every entry point.
+
+### 0. Prerequisites
+
+The Docker path (steps 1–4) needs only **git, make, and a running Docker
+daemon** with the compose plugin (Docker Desktop, or on macOS
+`brew install colima docker docker-compose && colima start`). The
+Kubernetes path (steps 5–6) additionally needs:
+
+```bash
+brew install kind kubectl kustomize
+```
+
+(Linux: install the same four tools with your package manager or the
+projects' release binaries.)
+
+### 1. Start the whole stack
 
 ```bash
 git clone https://github.com/jastephan63/lsa-platform
@@ -63,30 +83,115 @@ make up
 make smoke
 ```
 
-Line by line: clone, enter the directory, copy the env template (then set
-your own local passwords in `.env`), start the full stack (db → migrate →
-generate → ingest → api, plus Prometheus and Grafana), and run the
-end-to-end checks. Afterwards three things are serving:
+That is: clone, copy the env template (the defaults work; change the
+passwords if you like — but see the `make reset` note below), build and
+start everything (db → migrations → data generation → validated ingest →
+API, plus Prometheus and Grafana), then run the end-to-end checks. On a
+re-run the clone step just reports the directory exists and the rest
+proceeds.
 
-| URL | What |
-| --- | ---- |
-| http://localhost:8000 | results page and aggregate API |
-| http://localhost:3000 | Grafana with the provisioned "lsa-platform API" dashboard |
-| http://localhost:9090 | Prometheus (scraping the API's `/metrics`) | Safe to paste as a block, and safe to re-run — on a
-second run the clone step just reports the directory exists and the rest
-proceeds. Requires a running Docker daemon (`make up` says so if not). No
-inline comments in the code block — macOS's default zsh would treat them as
-arguments.
+### 2. Look at everything
 
-If you change `POSTGRES_PASSWORD` in `.env` *after* the database has
-already been created once, run `make reset` first: PostgreSQL sets its
-credentials only when its data volume is first initialised, so the old
-volume must go (it holds only regenerable synthetic data).
+| URL | What you see |
+| --- | ------------ |
+| http://localhost:8000 | results page with the chart, and the aggregate API (`/api/results/cantons`, `/docs` for the OpenAPI browser) |
+| http://localhost:3000 | Grafana → dashboards → *lsa-platform* → **lsa-platform API** (no login needed for viewing) |
+| http://localhost:9090 | Prometheus; try the query `lsa_http_requests_total` |
 
-Kubernetes instead (needs kind + kubectl + kustomize):
-`set -a; . ./.env; set +a; make kind-up` — then `make smoke BASE_URL=http://localhost:8080`.
+The restricted tier (finer canton × SES aggregates, bearer-token
+authenticated, audited):
 
-`make help` lists every entry point.
+```bash
+set -a; . ./.env; set +a
+curl -H "Authorization: Bearer $LSA_ANALYST_API_TOKEN" http://localhost:8000/api/restricted/cantons-by-ses
+```
+
+The token is whatever `LSA_ANALYST_API_TOKEN` says in your `.env`. Without
+the header you get 401; if the variable is unset the tier is off entirely
+(503).
+
+### 3. Run the R analysis batch job
+
+```bash
+make analysis
+```
+
+Prints the publishable table — weighted mean, standard error, and 95%
+confidence interval per canton, small cells suppressed — computed by the
+`lsar` R package from microdata via the read-only analyst role.
+
+### 4. Back up and restore
+
+```bash
+set -a; . ./.env; set +a
+export POSTGRES_HOST=localhost
+make backup
+```
+
+Restore with `./scripts/db_restore.sh backups/<file>.dump` (it asks for
+confirmation; the CI restore drill runs exactly this round trip on every
+push). Requires PostgreSQL 16 client tools on the host — or skip the local
+tools and let CI demonstrate it.
+
+### 5. The same platform on Kubernetes
+
+```bash
+set -a; . ./.env; set +a
+make kind-up
+./scripts/smoke_test.sh --base-url https://localhost:8443 --insecure
+```
+
+`kind-up` creates a local kind cluster, builds and loads the images,
+installs ingress-nginx and cert-manager, creates the secret from your
+environment (never from a file in git), deploys the Kustomize dev overlay,
+and waits for readiness. The API then serves on **https://localhost:8443**
+with a self-signed certificate — your browser will warn, which is expected;
+`--insecure` tells the smoke suite to accept it. HTTP on :8080 redirects to
+HTTPS.
+
+### 6. Optional: let the cluster follow git (GitOps)
+
+```bash
+make gitops-up
+```
+
+Installs Argo CD into the kind cluster and points it at this repository's
+`k8s/overlays/dev`; from then on the cluster reconciles itself to whatever
+is on `main` instead of being pushed to. `kubectl -n argocd get
+application lsa-platform` shows Synced/Healthy when it has converged.
+
+### 7. Optional: the load-size dataset
+
+```bash
+make data-large
+```
+
+Generates ~91k students / 2.4M responses / 10.6M replicate weights
+(~377 MB of CSV, a few minutes) into `data/raw`; ingest it into a running
+stack with `make ingest`. What that measures — timings, query plans, and
+the matview trade-off — is written up in
+[docs/performance.md](docs/performance.md).
+
+### 8. Tests and linters, locally
+
+Everything CI runs can run locally: `make lint lint-sql lint-shell
+validate-k8s validate-tf` for the linters, `make install-py test-py` for
+the Python suite (needs `POSTGRES_*` in the environment and R for the data
+fixture), `make check-r` for the R package. CI remains the referee — every
+job is required.
+
+### 9. Cleaning up
+
+```bash
+make down
+make kind-down
+```
+
+`make down` stops the compose stack but keeps the data volumes; `make
+reset` also deletes the volumes (synthetic data only) — needed if you
+change `POSTGRES_PASSWORD` after the database was first created, because
+PostgreSQL sets credentials only when its volume is initialised.
+`make kind-down` deletes the kind cluster, Argo CD included.
 
 ## Repository layout
 
