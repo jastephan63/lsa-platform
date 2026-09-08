@@ -176,7 +176,7 @@ jobs:
           test "$(check "SELECT count(*) FROM information_schema.tables
                          WHERE table_schema='public' AND table_type='BASE TABLE'")" = "9"
           test "$(check "SELECT count(*) FROM information_schema.views
-                         WHERE table_schema='public'")" = "4"
+                         WHERE table_schema='public'")" = "5"
           test "$(check "SELECT count(*) FROM pg_roles
                          WHERE rolname IN ('lsa_api','lsa_analyst')")" = "2"
           # Privilege split: the API role must NOT read base tables; the
@@ -279,7 +279,10 @@ jobs:
         run: |
           kustomize build --load-restrictor=LoadRestrictionsNone k8s/overlays/dev > /tmp/dev.yaml
           kustomize build --load-restrictor=LoadRestrictionsNone k8s/overlays/prod > /tmp/prod.yaml
-          kubeconform -strict -summary /tmp/dev.yaml /tmp/prod.yaml
+          kubeconform -strict -summary \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            /tmp/dev.yaml /tmp/prod.yaml
 
   e2e-kind:
     name: e2e — kind deploy + smoke tests
@@ -299,9 +302,22 @@ jobs:
           LSA_API_DB_PASSWORD: ci-api-password
           LSA_ANALYST_DB_USER: lsa_analyst
           LSA_ANALYST_DB_PASSWORD: ci-analyst-password
+          LSA_ANALYST_API_TOKEN: ci-analyst-token
         run: ./scripts/kind-up.sh
-      - name: Run the smoke-test suite through the ingress
-        run: ./scripts/smoke_test.sh --base-url http://localhost:8080
+      - name: Run the smoke-test suite through the TLS ingress
+        env:
+          LSA_ANALYST_API_TOKEN: ci-analyst-token
+        run: ./scripts/smoke_test.sh --base-url https://localhost:8443 --insecure
+      - name: Plain HTTP is redirected to HTTPS
+        run: |
+          code="$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/healthz)"
+          test "$code" = "308"
+      - name: TLS terminates at the ingress with the cert-manager certificate
+        run: |
+          curl -fsSk https://localhost:8443/healthz | grep -q ok
+          openssl s_client -connect localhost:8443 -servername localhost </dev/null 2>/dev/null \
+            | openssl x509 -noout -subject -ext subjectAltName | tee /tmp/cert.txt
+          grep -q localhost /tmp/cert.txt
       - name: Diagnostics on failure
         if: failure()
         run: |

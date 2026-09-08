@@ -29,6 +29,17 @@ The privilege split is asserted by CI ([sql job](../.github/workflows/ci.yml))
 and by a test that connects with the API's own credentials and expects
 `InsufficientPrivilege` ([test_api.py](../python/tests/test_api.py)).
 
+## The authenticated tier
+
+Finer aggregates (canton × SES quintile) sit behind a bearer token
+(`/api/restricted/...`): constant-time comparison, off-not-open when
+unconfigured, every request audited, and the same suppression rule — most
+of those finer cells are below the threshold, which is the point. The token
+is a deliberate simplification standing in for OIDC; the demonstrated
+boundary is that finer granularity requires authentication, is audited, and
+never bypasses disclosure control
+([test_restricted_tier.py](../python/tests/test_restricted_tier.py)).
+
 ## Secrets handling
 
 - Configuration is environment-only ([.env.example](../.env.example) is the

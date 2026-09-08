@@ -5,6 +5,7 @@ kind: Kustomization
 
 resources:
   - ../../base
+  - tls.yaml
 
 patches:
   - patch: |-
@@ -18,6 +19,11 @@ patches:
       - op: replace
         path: /spec/rules/0/host
         value: localhost
+      - op: add
+        path: /spec/tls
+        value:
+          - hosts: [localhost]
+            secretName: lsa-tls
     target:
       kind: Ingress
       name: lsa-api

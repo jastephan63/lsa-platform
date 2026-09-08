@@ -74,8 +74,8 @@ validate-tf: ## terraform fmt-check + validate the OpenStack module (no credenti
 	terraform -chdir=infra validate
 
 validate-k8s: ## Render both overlays and validate with kubeconform
-	kustomize build --load-restrictor=LoadRestrictionsNone k8s/overlays/dev | kubeconform -strict -summary
-	kustomize build --load-restrictor=LoadRestrictionsNone k8s/overlays/prod | kubeconform -strict -summary
+	kustomize build --load-restrictor=LoadRestrictionsNone k8s/overlays/dev | kubeconform -strict -summary -schema-location default -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+	kustomize build --load-restrictor=LoadRestrictionsNone k8s/overlays/prod | kubeconform -strict -summary -schema-location default -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 
 check-r: ## R CMD check the lsar analysis package
 	cd r/lsar && Rscript -e 'roxygen2::roxygenise()'

@@ -14,7 +14,8 @@ Secrets are taken from the environment (see .env.example):
   POSTGRES_USER, POSTGRES_PASSWORD, LSA_API_DB_USER, LSA_API_DB_PASSWORD,
   LSA_ANALYST_DB_USER, LSA_ANALYST_DB_PASSWORD
 
-The API is reachable on http://localhost:8080 afterwards.
+The API answers on http://localhost:8080 and https://localhost:8443
+(self-signed certificate) afterwards.
 
 Options:
   --cluster NAME   kind cluster name (default: lsa)
@@ -40,7 +41,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${LSA_ANALYST_DB_PASSWORD:?set LSA_ANALYST_DB_PASSWORD}"
 
 if ! kind get clusters 2>/dev/null | grep -qx "$cluster"; then
-  # Port mapping 8080→80 lets the host reach the ingress controller.
+  # Port mappings 8080→80 / 8443→443 let the host reach the ingress controller.
   kind create cluster --name "$cluster" --config - <<'EOF'
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -56,6 +57,9 @@ nodes:
       - containerPort: 80
         hostPort: 8080
         protocol: TCP
+      - containerPort: 443
+        hostPort: 8443
+        protocol: TCP
 EOF
 fi
 kubectl config use-context "kind-$cluster" >/dev/null
@@ -64,6 +68,11 @@ echo "==> building images"
 docker build -q -f "$repo_root/docker/api.Dockerfile" -t lsa-api:local "$repo_root"
 docker build -q -f "$repo_root/docker/analysis.Dockerfile" -t lsa-analysis:local "$repo_root"
 kind load docker-image --name "$cluster" lsa-api:local lsa-analysis:local
+
+echo "==> installing cert-manager"
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.21.1/cert-manager.yaml
+kubectl wait --namespace cert-manager --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=webhook --timeout=180s
 
 echo "==> installing ingress-nginx"
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.3/deploy/static/provider/kind/deploy.yaml
@@ -79,6 +88,7 @@ kubectl -n lsa create secret generic lsa-db-credentials \
   --from-literal=LSA_API_DB_PASSWORD="$LSA_API_DB_PASSWORD" \
   --from-literal=LSA_ANALYST_DB_USER="$LSA_ANALYST_DB_USER" \
   --from-literal=LSA_ANALYST_DB_PASSWORD="$LSA_ANALYST_DB_PASSWORD" \
+  --from-literal=LSA_ANALYST_API_TOKEN="${LSA_ANALYST_API_TOKEN:-kind-demo-token}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 echo "==> deploying the dev overlay"
@@ -104,8 +114,8 @@ kubectl -n lsa rollout status deployment/lsa-api --timeout=180s
 
 echo "==> waiting for ingress to answer"
 for _ in $(seq 1 60); do
-  if curl -fsS -o /dev/null http://localhost:8080/healthz; then
-    echo "lsa-platform is up: http://localhost:8080"
+  if curl -fsSk -o /dev/null https://localhost:8443/healthz; then
+    echo "lsa-platform is up: https://localhost:8443 (http://localhost:8080 redirects there)"
     exit 0
   fi
   sleep 2

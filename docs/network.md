@@ -17,12 +17,16 @@ flowchart LR
    ([infra/compute.tf](../infra/compute.tf)). The OpenStack **security
    group** admits 80/443 from anywhere and SSH only from an explicit admin
    CIDR — the module refuses to accept `0.0.0.0/0` for SSH.
-2. **TLS terminates at the ingress controller.** Inside the cluster,
-   traffic is plain HTTP on the pod network. That is a deliberate,
-   documented trade-off: certificates and ciphers are managed in one place
-   (with cert-manager in a real deployment); the cost is that in-cluster
-   traffic is unencrypted, which a service mesh (mTLS) would address if the
-   threat model demanded it.
+2. **TLS terminates at the ingress controller.** In the dev cluster this is
+   real, not notional: cert-manager issues a certificate from a self-signed
+   issuer into a Secret, the Ingress terminates TLS with it on
+   https://localhost:8443, and the e2e CI job verifies the handshake and
+   the certificate's SAN. Swapping the self-signed issuer for ACME is the
+   only change a real deployment needs. Inside the cluster, traffic is
+   plain HTTP on the pod network — a deliberate trade-off: certificates
+   and ciphers are managed in one place; the cost is unencrypted east-west
+   traffic, which a service mesh (mTLS) would address if the threat model
+   demanded it.
 3. **Ingress → Service.** The Ingress resource routes by host/path to the
    `lsa-api` Service. A Service is a stable virtual IP; kube-proxy load-
    balances connections across the ready endpoints (pods that pass the
