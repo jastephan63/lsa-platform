@@ -156,7 +156,7 @@ pv <- t(apply(resp_wide, 1, function(x) {
   post <- post / sum(post)
   sample(grid, 5, replace = TRUE, prob = post) + runif(5, -0.05, 0.05)
 }))
-# Report PVs on a PISA-like scale (mean 500, sd 100) so results look familiar.
+# Report PVs on a conventional assessment scale (mean 500, sd 100).
 pv_scaled <- round(500 + 100 * pv, 2)
 plausible <- data.frame(
   student_id = rownames(pv_scaled),

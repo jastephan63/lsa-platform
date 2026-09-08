@@ -1,7 +1,7 @@
 # PostgreSQL as a StatefulSet with a persistent volume per replica.
 #
-# PRODUCTION NOTE: on Switch Engines (or any cloud), a managed/database-as-a-
-# service offering is usually the better call — backups, PITR, patching and
+# PRODUCTION NOTE: on any real cloud, a managed database-as-a-service
+# offering is usually the better call — backups, PITR, patching and
 # failover are someone else's pager. This StatefulSet exists so the demo is
 # self-contained and so the manifest shape (volumeClaimTemplates, headless
 # service, probes) is on display. See docs/adr/ for the trade-off.
