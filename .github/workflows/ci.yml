@@ -209,12 +209,13 @@ jobs:
           tflint --init
           tflint --format compact
       - name: terraform-docs table is current
-        uses: terraform-docs/gh-actions@v1.4.1
-        with:
-          working-dir: infra
-          output-file: README.md
-          output-method: inject
-          fail-on-diff: "true"
+        # Pinned to the same version used locally, so the generated table is
+        # byte-identical and the diff check cannot false-positive.
+        run: |
+          curl -sL https://github.com/terraform-docs/terraform-docs/releases/download/v0.24.0/terraform-docs-v0.24.0-linux-amd64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin terraform-docs
+          terraform-docs markdown table --output-file README.md --output-mode inject .
+          git diff --exit-code -- README.md
 
   k8s-validate:
     name: kustomize build + kubeconform
