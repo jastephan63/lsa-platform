@@ -30,6 +30,18 @@ pass=0
 fail() { echo "FAIL: $1" >&2; exit 1; }
 ok() { pass=$((pass + 1)); echo "ok: $1"; }
 
+# The stack may still be starting (compose one-shot jobs, pod rollout);
+# give the API up to 90s to answer before the checks begin.
+waited=0
+until curl -fsS -o /dev/null "$base_url/healthz" 2>/dev/null; do
+  waited=$((waited + 3))
+  if [ "$waited" -gt 90 ]; then
+    fail "API did not answer on $base_url within 90s (is the stack up? try: docker compose ps)"
+  fi
+  echo "waiting for the API on $base_url ..."
+  sleep 3
+done
+
 body="$(curl -fsS "$base_url/healthz")" || fail "healthz unreachable"
 grep -q '"ok"' <<<"$body" || fail "healthz body: $body"
 ok "healthz"
