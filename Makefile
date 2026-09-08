@@ -15,6 +15,9 @@ help: ## Show this help
 data: ## Generate the synthetic dataset into data/raw (SEED=... to override)
 	Rscript r/datagen/generate.R --seed $(SEED) --out data/raw
 
+data-large: ## Generate the ~100k-student load-test dataset (see docs/performance.md)
+	Rscript r/datagen/generate.R --seed $(SEED) --scale 42 --out data/raw
+
 migrate: ## Apply pending database migrations (connection from environment/.env)
 	./scripts/migrate.sh
 

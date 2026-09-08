@@ -6,8 +6,9 @@
 # Notes:
 # - kustomize.buildOptions (the load restrictor) is set in argocd-cm by
 #   scripts/gitops-up.sh, because it is server-side Argo configuration.
-# - Replace=true because the lsa-setup Job is immutable by design; a synced
-#   change to migrations or scripts legitimately means "run the job again".
+# - The lsa-setup Job carries a per-resource Replace annotation (Jobs are
+#   immutable; a synced change to migrations legitimately means "run it
+#   again"). Replace must NOT be global: PVCs reject replacement.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -27,5 +28,11 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - Replace=true
       - CreateNamespace=true
+  ignoreDifferences:
+    # The cluster defaults storageClassName on bound claims; that is not drift.
+    - group: ""
+      kind: PersistentVolumeClaim
+      jsonPointers:
+        - /spec/storageClassName
+        - /spec/volumeName

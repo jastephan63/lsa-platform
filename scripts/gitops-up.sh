@@ -33,7 +33,7 @@ argocd_version="v3.5.2"
 
 echo "==> installing argo cd $argocd_version"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -n argocd \
+kubectl apply --server-side --force-conflicts -n argocd \
   -f "https://raw.githubusercontent.com/argoproj/argo-cd/$argocd_version/manifests/install.yaml" >/dev/null
 # This repo's kustomization reads migrations/scripts from the repo root,
 # which needs the relaxed load restrictor server-side in Argo.

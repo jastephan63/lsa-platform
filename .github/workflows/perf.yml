@@ -1,0 +1,63 @@
+# On-demand load test (workflow_dispatch, not part of the required set —
+# a ~100k-student run on every push would slow feedback for no signal).
+# Generates at --scale 42, times the ingest, and records EXPLAIN ANALYZE
+# for the analytical views in the job summary. Findings are curated into
+# docs/performance.md.
+name: perf
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lsa
+          POSTGRES_USER: lsa_admin
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U lsa_admin -d lsa"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: lsa
+      POSTGRES_USER: lsa_admin
+      POSTGRES_PASSWORD: ci-only-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - name: Generate at scale 42 (~100k students)
+        run: |
+          time Rscript r/datagen/generate.R --scale 42 --out data/raw
+          wc -l data/raw/*.csv | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Migrate and time the ingest
+        run: |
+          ./scripts/migrate.sh
+          pip install ./python
+          { time lsa-ingest load --data-dir data/raw --report-dir data/reports --strict ; } \
+            2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: EXPLAIN ANALYZE the analytical views
+        run: |
+          q() { PGPASSWORD="$POSTGRES_PASSWORD" psql -h localhost -U lsa_admin -d lsa --no-psqlrc -c "$1"; }
+          {
+            echo '## canton_competency'
+            q 'EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM canton_competency;'
+            echo '## canton_ses_competency'
+            q 'EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM canton_ses_competency;'
+            echo '## canton_response_rate'
+            q 'EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM canton_response_rate;'
+          } | tee /tmp/explain.txt
+          { echo '```'; cat /tmp/explain.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

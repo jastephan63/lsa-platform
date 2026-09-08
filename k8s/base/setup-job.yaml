@@ -9,6 +9,9 @@ metadata:
   name: lsa-setup
   labels:
     app.kubernetes.io/name: lsa-setup
+  annotations:
+    # Jobs are immutable; under Argo, a changed spec means "run it again".
+    argocd.argoproj.io/sync-options: Replace=true,Force=true
 spec:
   backoffLimit: 2
   template:
