@@ -57,13 +57,13 @@ infrastructure at all.
 | Name | Version |
 | ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5 |
-| <a name="requirement_openstack"></a> [openstack](#requirement\_openstack) | ~> 2.1 |
+| <a name="requirement_openstack"></a> [openstack](#requirement\_openstack) | ~> 3.4 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| <a name="provider_openstack"></a> [openstack](#provider\_openstack) | 2.1.0 |
+| <a name="provider_openstack"></a> [openstack](#provider\_openstack) | 3.4.0 |
 
 ## Modules
 
