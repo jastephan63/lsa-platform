@@ -15,10 +15,10 @@ jobs:
     name: gitleaks secret scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -26,7 +26,7 @@ jobs:
     name: R data generator (runs + reproducible)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
@@ -65,8 +65,8 @@ jobs:
       POSTGRES_USER: lsa_admin
       POSTGRES_PASSWORD: ci-only-password
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - uses: r-lib/actions/setup-r@v2
@@ -108,7 +108,7 @@ jobs:
       POSTGRES_USER: lsa_admin
       POSTGRES_PASSWORD: ci-only-password
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
@@ -116,7 +116,7 @@ jobs:
         with:
           working-directory: r/lsar
           extra-packages: any::rcmdcheck
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Load the database so the R-vs-SQL agreement test runs
@@ -151,8 +151,8 @@ jobs:
       POSTGRES_USER: lsa_admin
       POSTGRES_PASSWORD: ci-only-password
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Lint SQL
@@ -213,8 +213,8 @@ jobs:
       POSTGRES_USER: lsa_admin
       POSTGRES_PASSWORD: ci-only-password
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - uses: r-lib/actions/setup-r@v2
@@ -248,7 +248,7 @@ jobs:
       run:
         working-directory: infra
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4.0.1
       - name: terraform fmt
         run: terraform fmt -check -diff
@@ -274,7 +274,7 @@ jobs:
     name: kustomize build + kubeconform
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install kubeconform (kustomize is preinstalled on runners)
         run: |
           kustomize version
@@ -292,7 +292,7 @@ jobs:
     name: e2e — kind deploy + smoke tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: helm/kind-action@v1.15.0
         with:
           install_only: true
@@ -338,7 +338,7 @@ jobs:
       matrix:
         image: [api, analysis]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build ${{ matrix.image }} image
         run: docker build -f docker/${{ matrix.image }}.Dockerfile -t lsa-${{ matrix.image }}:ci .
       - name: Trivy vulnerability scan (fails on fixable HIGH/CRITICAL)
@@ -359,7 +359,7 @@ jobs:
     name: shellcheck all scripts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: shellcheck
         run: shellcheck scripts/*.sh
       - name: every script answers --help
@@ -372,8 +372,8 @@ jobs:
     name: pip-audit dependency advisories
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Audit the installed dependency tree
@@ -385,8 +385,8 @@ jobs:
     name: pre-commit hygiene
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Run pre-commit on all files
