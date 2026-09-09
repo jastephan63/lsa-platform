@@ -15,9 +15,9 @@ wraps each file plus its bookkeeping row in one transaction.
 
 ## Rationale
 
-- **The schema itself is the demonstrandum.** DDL with comments in files a
-  reviewer reads top-to-bottom evidences SQL directly; an ORM-generated
-  migration chain evidences knowing Alembic.
+- **The schema itself is the thing being demonstrated.** Plain SQL files
+  with comments, readable top to bottom, show SQL skill directly; an
+  ORM-generated migration chain mostly shows familiarity with Alembic.
 - **Language-neutral.** Python, R, psql, and CI all consume the same
   database; tying schema management to one language's tooling puts a Python
   dependency into the R image's and the DBA's workflow. The runner needs

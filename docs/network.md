@@ -71,6 +71,6 @@ them, which is a classic false sense of security. Verifying enforcement
 | internet | app instance | 443/80 | security group `web` |
 | admin CIDR | app instance | 22 | security group `web` |
 | ingress-nginx pods | api pods | 8000 | NetworkPolicy |
-| api + setup pods | db pod | 5432 | NetworkPolicy |
+| api + setup + backup pods | db pod | 5432 | NetworkPolicy |
 | all pods | CoreDNS | 53 | NetworkPolicy |
 | everything else | anything | — | denied by default |

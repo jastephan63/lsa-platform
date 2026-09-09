@@ -24,7 +24,9 @@ Rolle mit Lesezugriff auf pseudonymisierte Einzeldaten, aber ohne
 Schreibrechte.
 
 **Nur Aggregate verlassen das System.** Die API liefert ausschliesslich
-gewichtete Kennwerte pro Kanton bzw. Sprachregion. Ein Test schlägt fehl,
+gewichtete Kennwerte auf Gruppenebene — nach Kanton, Sprachregion,
+Geschlecht, Kompetenzstufe — sowie Item- und Stichprobenstatistiken,
+niemals Einzeldaten. Ein Test schlägt fehl,
 wenn ein Endpunkt je ein Feld auf Einzeldatenebene liefern würde
 ([test_api.py](../python/tests/test_api.py)).
 

@@ -20,7 +20,7 @@
     th, td { text-align: left; padding: .35rem .7rem; border-bottom: 1px solid #ddd; }
     th { border-bottom: 2px solid #999; }
     td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-    .suppressed { color: #888; font-style: italic; }
+    .suppressed { color: #6b6b6b; font-style: italic; }
     .band { display: flex; height: 14px; border-radius: 3px; overflow: hidden; min-width: 10rem; }
     .band div { height: 100%; }
     .b-low { background: #d98c8c; } .b-mid { background: #a8c6e8; } .b-high { background: #7dab7d; }
@@ -89,14 +89,14 @@
           stroke="#1a1a1a" stroke-width="1.4"/>
     {% endif %}
     {% else %}
-    <text x="64" y="{{ loop.index0 * 18 + 13 }}" fill="#999" font-style="italic">suppressed</text>
+    <text x="64" y="{{ loop.index0 * 18 + 13 }}" fill="#6b6b6b" font-style="italic">suppressed</text>
     {% endif %}
     {% endfor %}
   </svg>
   <table>
     <thead>
-      <tr><th>Canton</th><th>Region</th><th class="num">Students</th>
-          <th class="num">Mean</th><th class="num">SE</th><th class="num">95% CI</th></tr>
+      <tr><th scope="col">Canton</th><th scope="col">Region</th><th scope="col" class="num">Students</th>
+          <th scope="col" class="num">Mean</th><th scope="col" class="num">SE</th><th scope="col" class="num">95% CI</th></tr>
     </thead>
     <tbody>
       {% for row in rows %}
@@ -121,8 +121,8 @@
   <p class="hint">Weighted share of students scoring below 450 (red),
     450–549 (blue), and 550 or above (green).</p>
   <table>
-    <thead><tr><th>Canton</th><th>Distribution</th>
-      <th class="num">&lt;450</th><th class="num">450–549</th><th class="num">≥550</th></tr></thead>
+    <thead><tr><th scope="col">Canton</th><th scope="col">Distribution</th>
+      <th scope="col" class="num">&lt;450</th><th scope="col" class="num">450–549</th><th scope="col" class="num">≥550</th></tr></thead>
     <tbody>
       {% for lv in levels %}
       <tr>
@@ -130,7 +130,7 @@
         {% if lv.pct_below is none %}
         <td class="suppressed" colspan="4">suppressed</td>
         {% else %}
-        <td><div class="band">
+        <td><div class="band" aria-hidden="true">
           <div class="b-low" style="width: {{ lv.pct_below }}%"></div>
           <div class="b-mid" style="width: {{ lv.pct_middle }}%"></div>
           <div class="b-high" style="width: {{ lv.pct_above }}%"></div>
@@ -146,9 +146,9 @@
 
   <h2>Group comparisons</h2>
   <table>
-    <thead><tr><th>Language region
+    <thead><tr><th scope="col">Language region
       <a class="apilink" href="/api/results/language-regions">api</a></th>
-      <th class="num">Students</th><th class="num">Mean score</th></tr></thead>
+      <th scope="col" class="num">Students</th><th scope="col" class="num">Mean score</th></tr></thead>
     <tbody>
       {% for r in regions %}
       <tr><td>{{ r.language_region }}</td><td class="num">{{ r.n_students }}</td>
@@ -157,9 +157,9 @@
     </tbody>
   </table>
   <table>
-    <thead><tr><th>Sex × region
+    <thead><tr><th scope="col">Sex × region
       <a class="apilink" href="/api/results/by-sex">api</a></th>
-      <th class="num">Students</th><th class="num">Mean score</th></tr></thead>
+      <th scope="col" class="num">Students</th><th scope="col" class="num">Mean score</th></tr></thead>
     <tbody>
       {% for r in by_sex %}
       <tr><td>{{ "girls" if r.sex == "f" else "boys" }} · {{ r.language_region }}</td>
@@ -172,8 +172,8 @@
   <h2>Participation by canton
     <a class="apilink" href="/api/results/response-rates">api</a></h2>
   <table>
-    <thead><tr><th>Canton</th><th class="num">Sampled</th><th class="num">Responded</th>
-      <th class="num">Rate</th><th class="num">Rank in region</th><th class="num">vs national</th></tr></thead>
+    <thead><tr><th scope="col">Canton</th><th scope="col" class="num">Sampled</th><th scope="col" class="num">Responded</th>
+      <th scope="col" class="num">Rate</th><th scope="col" class="num">Rank in region</th><th scope="col" class="num">vs national</th></tr></thead>
     <tbody>
       {% for rr in response_rates %}
       <tr><td>{{ rr.canton }}</td><td class="num">{{ rr.n_sampled }}</td>
@@ -190,8 +190,8 @@
   <p class="hint">Facility = share of correct answers per test item
     (aggregates over items, not persons). Low facility = hard item.</p>
   <table>
-    <thead><tr><th>Item</th><th>Domain</th><th class="num">Responses</th>
-      <th class="num">Facility</th><th class="num">Weighted facility</th></tr></thead>
+    <thead><tr><th scope="col">Item</th><th scope="col">Domain</th><th scope="col" class="num">Responses</th>
+      <th scope="col" class="num">Facility</th><th scope="col" class="num">Weighted facility</th></tr></thead>
     <tbody>
       {% for it in items %}
       <tr><td>{{ it.item_id }}</td><td>{{ it.domain }}</td>

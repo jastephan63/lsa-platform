@@ -2,7 +2,7 @@
 % Please edit documentation in R/estimate.R
 \name{pv_group_means}
 \alias{pv_group_means}
-\title{Weighted group means over plausible values}
+\title{Weighted group means over plausible values (point estimates only)}
 \usage{
 pv_group_means(
   data,
@@ -26,8 +26,9 @@ A data.frame with columns \code{group}, \code{n}, \code{estimate}, \code{imputat
 \description{
 Computes the weighted mean per group for each plausible value separately,
 then combines: the point estimate is the average of the per-PV estimates,
-and the reported variance is the between-imputation variance under Rubin's
-rules. The full sampling variance would additionally need replicate
-weights (BRR or jackknife), which this demonstration dataset does not
-carry — see the package README for the honest scope of this estimator.
+and the reported variance is only the between-imputation part under
+Rubin's rules. For full design-based uncertainty (standard errors and
+confidence intervals via jackknife replicate weights) use
+\code{\link[=pv_group_means_se]{pv_group_means_se()}}; this simpler function remains because the SQL
+views implement the same point estimator and a test compares the two.
 }

@@ -94,7 +94,7 @@ proceeds.
 
 | URL | What you see |
 | --- | ------------ |
-| http://localhost:8000 | results page with the chart, and the aggregate API (`/api/results/cantons`, `/docs` for the OpenAPI browser) |
+| http://localhost:8000 | the results site: national overview, canton chart with confidence intervals, proficiency bands, group comparisons, participation, item statistics — every section linked to its JSON endpoint, all browsable at `/docs` |
 | http://localhost:3000 | Grafana → dashboards → *lsa-platform* → **lsa-platform API** (no login needed for viewing) |
 | http://localhost:9090 | Prometheus; try the query `lsa_http_requests_total` |
 
@@ -118,7 +118,9 @@ make analysis
 
 Prints the publishable table — weighted mean, standard error, and 95%
 confidence interval per canton, small cells suppressed — computed by the
-`lsar` R package from microdata via the read-only analyst role.
+`lsar` R package from microdata as the analyst role, and publishes it into
+the database so the website and `/api/results/uncertainty` serve the same
+numbers ([glossary](docs/glossary.md) explains the statistical terms).
 
 ### 4. Back up and restore
 
@@ -206,7 +208,7 @@ PostgreSQL sets credentials only when its volume is initialised.
 | [k8s/](k8s) | Kustomize base + dev/prod overlays |
 | [infra/](infra) | Terraform module for OpenStack ([module README](infra/README.md)) |
 | [observability/](observability) | Prometheus config and the provisioned Grafana dashboard |
-| [docs/](docs) | [security](docs/security.md) · [datenschutz](docs/datenschutz.md) (German) · [network](docs/network.md) · [performance](docs/performance.md) · [ADRs](docs/adr) |
+| [docs/](docs) | [security](docs/security.md) · [datenschutz](docs/datenschutz.md) (German) · [network](docs/network.md) · [performance](docs/performance.md) · [glossary](docs/glossary.md) · [ADRs](docs/adr) |
 
 ## Notes from building it
 

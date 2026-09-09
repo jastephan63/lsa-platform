@@ -14,14 +14,15 @@ weighted_mean <- function(x, w) {
   sum(w * x) / sum(w)
 }
 
-#' Weighted group means over plausible values
+#' Weighted group means over plausible values (point estimates only)
 #'
 #' Computes the weighted mean per group for each plausible value separately,
 #' then combines: the point estimate is the average of the per-PV estimates,
-#' and the reported variance is the between-imputation variance under Rubin's
-#' rules. The full sampling variance would additionally need replicate
-#' weights (BRR or jackknife), which this demonstration dataset does not
-#' carry — see the package README for the honest scope of this estimator.
+#' and the reported variance is only the between-imputation part under
+#' Rubin's rules. For full design-based uncertainty (standard errors and
+#' confidence intervals via jackknife replicate weights) use
+#' [pv_group_means_se()]; this simpler function remains because the SQL
+#' views implement the same point estimator and a test compares the two.
 #'
 #' @param data A data.frame with one row per student.
 #' @param group Name of the grouping column (e.g. `"canton"`).

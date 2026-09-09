@@ -3,9 +3,11 @@
 #   cp .env.example .env   # once; adjust the passwords
 #   docker compose up --build
 #
-# Startup order: db → migrate/bootstrap → datagen → ingest → api.
-# The one-shot jobs exit 0 and stay exited; `api` then serves on :8000.
-# `docker compose run analysis` runs the R batch job on demand.
+# Startup order: db → bootstrap (migrations + roles) → datagen → ingest →
+# publish (R analysis writes its estimates for the API) → api.
+# The one-shot jobs exit 0 and stay exited. Afterwards: the results site on
+# :8000, Grafana on :3000, Prometheus on :9090 (localhost only).
+# `docker compose run --rm analysis` re-runs the R batch job on demand.
 
 name: lsa-platform
 

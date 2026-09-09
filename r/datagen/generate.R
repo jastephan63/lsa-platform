@@ -10,8 +10,9 @@
 # Item responses follow a Rasch model; five plausible values per responding
 # student are drawn from an EAP posterior on a quadrature grid.
 #
-# Usage: Rscript generate.R [--seed N] [--out DIR]
+# Usage: Rscript generate.R [--seed N] [--out DIR] [--scale N]
 # Base R only, no package dependencies. Reproducible for a given seed.
+# Terms (PPS, Rasch, EAP, plausible values, jackknife): docs/glossary.md.
 
 args <- commandArgs(trailingOnly = TRUE)
 opt <- list(seed = 20260908, out = "data/raw", scale = 1L)

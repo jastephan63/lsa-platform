@@ -21,8 +21,8 @@ real data or production traffic. Data-protection specifics live in
 | Principal | May | May not |
 | --------- | --- | ------- |
 | `lsa_admin` | run migrations, ingest (DELETE + COPY) | is not used by any long-running service |
-| `lsa_api` | SELECT on the three published views; INSERT into the audit log | read any base table, read the audit log |
-| `lsa_analyst` | SELECT on base tables and views | write anything, read the audit log |
+| `lsa_api` | SELECT on the published aggregate views and the `analysis_result` table; INSERT into the audit log | read any base table, write results, read the audit log |
+| `lsa_analyst` | SELECT on base tables and views; write/replace `analysis_result` (its published inference) | touch any other table, read the audit log |
 | containers | run as uid 10001, read-only root filesystem, all capabilities dropped, seccomp `RuntimeDefault`, no privilege escalation | root, writable rootfs, host access |
 
 The privilege split is asserted by CI ([sql job](../.github/workflows/ci.yml))
