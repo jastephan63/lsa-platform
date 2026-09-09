@@ -35,6 +35,10 @@ shell — treats interactive `#` as a literal argument.
   that is not the seeded generator.
 - Match the style around you; comments explain constraints, not restate
   code.
+- **Dependabot PRs are advisories, not merges.** Apply the proposed bump in
+  a normal repo-authored commit (verify locally, push) and close the PR as
+  superseded — this keeps bots off the contributors list and every change
+  under one authorship.
 
 ## Security
 
