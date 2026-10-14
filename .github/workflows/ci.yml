@@ -293,7 +293,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: helm/kind-action@v1.15.0
+      - uses: helm/kind-action@v1.15.1
         with:
           install_only: true
       - name: Kustomize is preinstalled on runners
